@@ -139,9 +139,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // Handle file message
-    if (event.message.type === 'file') {
-      console.log('[DEBUG] Handling file message:', event.message.fileName);
+    // Handle file or image message
+    if (event.message.type === 'file' || event.message.type === 'image') {
+      // For image messages, we need to set a filename
+      const fileName = event.message.type === 'image'
+        ? `image_${event.message.id}.jpg`
+        : event.message.fileName;
+      console.log('[DEBUG] Handling message type:', event.message.type, 'with filename:', fileName);
 
       try {
         // Initialize Google Drive client
@@ -179,7 +183,7 @@ export default async function handler(req, res) {
         console.log('[DEBUG] Sending initial response to user');
         await replyMessage(lineClient, event.replyToken, {
           type: 'text',
-          text: `กำลังอัปโหลดไฟล์ "${event.message.fileName}" (${(buffer.length / (1024 * 1024)).toFixed(2)} MB)...`,
+          text: `กำลังอัปโหลด${event.message.type === 'image' ? 'รูปภาพ' : 'ไฟล์'} "${fileName}" (${(buffer.length / (1024 * 1024)).toFixed(2)} MB)...`,
         });
         console.log('[DEBUG] Initial response sent');
 
@@ -189,7 +193,7 @@ export default async function handler(req, res) {
         try {
           uploadResult = await resumableUpload(
             drive,
-            event.message.fileName,
+            fileName,
             buffer,
             process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
           );
@@ -202,7 +206,7 @@ export default async function handler(req, res) {
         // Send success message to user
         await lineClient.pushMessage(event.source.userId, {
           type: 'text',
-          text: `ไฟล์ "${uploadResult.name}" ถูกอัปโหลดเรียบร้อยแล้ว${uploadResult.webViewLink ? `\nลิงก์: ${uploadResult.webViewLink}` : ''}`,
+          text: `${event.message.type === 'image' ? 'รูปภาพ' : 'ไฟล์'} "${uploadResult.name}" ถูกอัปโหลดเรียบร้อยแล้ว${uploadResult.webViewLink ? `\nลิงก์: ${uploadResult.webViewLink}` : ''}`,
         });
       } catch (error) {
         console.error('[ERROR] Error handling file message:', error);
