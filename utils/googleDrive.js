@@ -12,7 +12,7 @@ export const initGoogleDrive = () => {
     process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     ['https://www.googleapis.com/auth/drive.file']
   );
-  
+
   return google.drive({ version: 'v3', auth });
 };
 
@@ -31,7 +31,7 @@ export const streamToBuffer = async (stream) => {
 };
 
 /**
- * Upload file to Google Drive using resumable upload
+ * Upload file to Google Drive using direct upload
  * @param {import('googleapis').drive_v3.Drive} drive - Google Drive API client
  * @param {string} fileName - Name of the file
  * @param {Buffer} buffer - File content as buffer
@@ -39,22 +39,43 @@ export const streamToBuffer = async (stream) => {
  * @returns {Promise<Object>} Upload result
  */
 export const resumableUpload = async (drive, fileName, buffer, folderId) => {
-  // Step 1: Initialize resumable upload session
-  const res = await drive.files.create({
-    requestBody: {
-      name: fileName,
-      parents: [folderId || 'root'],
-    },
-    media: {
-      mimeType: 'application/octet-stream',
-      body: Readable.from(buffer),
-    },
-    fields: 'id,name,webViewLink',
-    // Use resumable upload
-    uploadType: 'resumable',
-  });
+  console.log('[DEBUG] Starting direct upload to Google Drive');
+  console.log('[DEBUG] File name:', fileName);
+  console.log('[DEBUG] File size:', (buffer.length / (1024 * 1024)).toFixed(2), 'MB');
+  console.log('[DEBUG] Folder ID:', folderId || 'root');
 
-  return res.data;
+  try {
+    // Create a readable stream from the buffer
+    const fileStream = Readable.from(buffer);
+
+    // Upload file to Google Drive
+    const res = await drive.files.create({
+      requestBody: {
+        name: fileName,
+        parents: [folderId || 'root'],
+      },
+      media: {
+        mimeType: 'application/octet-stream',
+        body: fileStream,
+      },
+      fields: 'id,name,webViewLink',
+    }, {
+      // Set a longer timeout
+      timeout: 60000,
+      // Increase retry count
+      retry: true,
+      retryConfig: {
+        retries: 3,
+        retryDelay: 1000,
+      }
+    });
+
+    console.log('[DEBUG] Upload successful, file ID:', res.data.id);
+    return res.data;
+  } catch (error) {
+    console.error('[ERROR] Upload failed:', error.message);
+    throw error;
+  }
 };
 
 /**
@@ -73,7 +94,7 @@ export const createFolder = async (drive, folderName, parentFolderId = 'root') =
     },
     fields: 'id',
   });
-  
+
   return res.data.id;
 };
 
@@ -88,7 +109,7 @@ export const listFiles = async (drive, folderId = 'root') => {
     q: `'${folderId}' in parents and trashed = false`,
     fields: 'files(id, name, mimeType, webViewLink, createdTime, size)',
   });
-  
+
   return res.data.files;
 };
 
@@ -103,6 +124,6 @@ export const getFile = async (drive, fileId) => {
     fileId,
     fields: 'id, name, mimeType, webViewLink, createdTime, size',
   });
-  
+
   return res.data;
 };
