@@ -2,11 +2,11 @@ import Head from 'next/head';
 
 export default function Home() {
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
       minHeight: '100vh',
       padding: '0 2rem',
       textAlign: 'center'
@@ -24,9 +24,9 @@ export default function Home() {
         <p style={{ fontSize: '1.25rem', marginBottom: '2rem' }}>
           This bot receives files from LINE and uploads them to Google Drive.
         </p>
-        <div style={{ 
-          padding: '1.5rem', 
-          border: '1px solid #eaeaea', 
+        <div style={{
+          padding: '1.5rem',
+          border: '1px solid #eaeaea',
           borderRadius: '10px',
           backgroundColor: '#f9f9f9'
         }}>
@@ -35,7 +35,7 @@ export default function Home() {
             Webhook URL: <code>/api/callback</code>
           </p>
           <p style={{ marginTop: '1rem' }}>
-            Bot is {process.env.LINE_CHANNEL_ACCESS_TOKEN ? 'configured' : 'not configured'}
+            Bot is ready to receive messages
           </p>
         </div>
       </main>
