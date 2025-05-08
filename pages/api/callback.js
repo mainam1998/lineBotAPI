@@ -2,14 +2,26 @@ import { initLineClient, verifySignature, replyMessage } from '../../utils/lineC
 import { initGoogleDrive, streamToBuffer, resumableUpload, listFiles } from '../../utils/googleDrive';
 
 export default async function handler(req, res) {
+  // Log request method and path
+  console.log(`[DEBUG] Request: ${req.method} ${req.url}`);
+
   // Only allow POST requests
   if (req.method !== 'POST') {
+    console.log('[DEBUG] Not a POST request, returning 405');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   // Always return 200 OK for LINE webhook
-  console.log('Received webhook:', JSON.stringify(req.body));
-  console.log('Headers:', JSON.stringify(req.headers));
+  console.log('[DEBUG] Received webhook body:', JSON.stringify(req.body, null, 2));
+  console.log('[DEBUG] Headers:', JSON.stringify(req.headers, null, 2));
+
+  // Check environment variables
+  console.log('[DEBUG] Environment check:');
+  console.log('LINE_CHANNEL_SECRET exists:', !!process.env.LINE_CHANNEL_SECRET);
+  console.log('LINE_CHANNEL_ACCESS_TOKEN exists:', !!process.env.LINE_CHANNEL_ACCESS_TOKEN);
+  console.log('GOOGLE_CLIENT_EMAIL exists:', !!process.env.GOOGLE_CLIENT_EMAIL);
+  console.log('GOOGLE_PRIVATE_KEY exists:', !!process.env.GOOGLE_PRIVATE_KEY);
+  console.log('GOOGLE_DRIVE_FOLDER_ID exists:', !!process.env.GOOGLE_DRIVE_FOLDER_ID);
 
   // Verify LINE signature (but don't return error status)
   try {
@@ -32,7 +44,15 @@ export default async function handler(req, res) {
   }
 
   // Initialize LINE client
-  const lineClient = initLineClient();
+  let lineClient;
+  try {
+    console.log('[DEBUG] Initializing LINE client');
+    lineClient = initLineClient();
+    console.log('[DEBUG] LINE client initialized successfully');
+  } catch (error) {
+    console.error('[ERROR] Failed to initialize LINE client:', error);
+    return res.status(200).end();
+  }
 
   // Process LINE webhook event
   try {
@@ -104,28 +124,56 @@ export default async function handler(req, res) {
 
     // Handle file message
     if (event.message.type === 'file') {
-      // Initialize Google Drive client
-      const drive = initGoogleDrive();
+      console.log('[DEBUG] Handling file message:', event.message.fileName);
 
-      // Get file content from LINE
-      const stream = await lineClient.getMessageContent(event.message.id);
+      try {
+        // Initialize Google Drive client
+        console.log('[DEBUG] Initializing Google Drive client');
+        const drive = initGoogleDrive();
+        console.log('[DEBUG] Google Drive client initialized');
 
-      // Convert stream to buffer for better handling
-      const buffer = await streamToBuffer(stream);
+        // Get file content from LINE
+        console.log('[DEBUG] Getting file content from LINE, message ID:', event.message.id);
+        const stream = await lineClient.getMessageContent(event.message.id);
+        console.log('[DEBUG] File content stream received');
 
-      // Send initial response to user
-      await replyMessage(lineClient, event.replyToken, {
-        type: 'text',
-        text: `กำลังอัปโหลดไฟล์ "${event.message.fileName}" (${(buffer.length / (1024 * 1024)).toFixed(2)} MB)...`,
-      });
+        // Convert stream to buffer for better handling
+        console.log('[DEBUG] Converting stream to buffer');
+        const buffer = await streamToBuffer(stream);
+        console.log('[DEBUG] Stream converted to buffer, size:', (buffer.length / (1024 * 1024)).toFixed(2), 'MB');
 
-      // Upload file to Google Drive using resumable upload for better handling of large files
-      const uploadResult = await resumableUpload(
-        drive,
-        event.message.fileName,
-        buffer,
-        process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
-      );
+        // Send initial response to user
+        console.log('[DEBUG] Sending initial response to user');
+        await replyMessage(lineClient, event.replyToken, {
+          type: 'text',
+          text: `กำลังอัปโหลดไฟล์ "${event.message.fileName}" (${(buffer.length / (1024 * 1024)).toFixed(2)} MB)...`,
+        });
+        console.log('[DEBUG] Initial response sent');
+
+        // Upload file to Google Drive using resumable upload for better handling of large files
+        console.log('[DEBUG] Starting file upload to Google Drive');
+        const uploadResult = await resumableUpload(
+          drive,
+          event.message.fileName,
+          buffer,
+          process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
+        );
+        console.log('[DEBUG] File uploaded successfully, result:', uploadResult);
+      } catch (error) {
+        console.error('[ERROR] Error handling file message:', error);
+
+        // Try to notify user about error
+        try {
+          await lineClient.pushMessage(event.source.userId, {
+            type: 'text',
+            text: 'เกิดข้อผิดพลาดในการอัปโหลดไฟล์ กรุณาลองใหม่อีกครั้ง',
+          });
+        } catch (notifyError) {
+          console.error('[ERROR] Failed to notify user about error:', notifyError);
+        }
+
+        return res.status(200).end();
+      }
 
       // Send success message to user
       await lineClient.pushMessage(event.source.userId, {
