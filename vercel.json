@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "pages/api/callback.js": {
+      "memory": 2048,
+      "maxDuration": 10,
+      "runtime": "nodejs18.x"
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
