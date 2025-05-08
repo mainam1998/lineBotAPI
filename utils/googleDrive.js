@@ -48,6 +48,37 @@ export const resumableUpload = async (drive, fileName, buffer, folderId) => {
     // Create a readable stream from the buffer
     const fileStream = Readable.from(buffer);
 
+    // Determine MIME type based on file extension
+    let mimeType = 'application/octet-stream';
+    const fileExtension = fileName.split('.').pop().toLowerCase();
+
+    // Map common file extensions to MIME types
+    const mimeTypes = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'mp4': 'video/mp4',
+      'mov': 'video/quicktime',
+      'm4a': 'audio/mp4',
+      'mp3': 'audio/mpeg',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'zip': 'application/zip',
+      'txt': 'text/plain'
+    };
+
+    if (fileExtension && mimeTypes[fileExtension]) {
+      mimeType = mimeTypes[fileExtension];
+    }
+
+    console.log('[DEBUG] Uploading file with MIME type:', mimeType);
+
     // Upload file to Google Drive
     const res = await drive.files.create({
       requestBody: {
@@ -55,10 +86,10 @@ export const resumableUpload = async (drive, fileName, buffer, folderId) => {
         parents: [folderId || 'root'],
       },
       media: {
-        mimeType: 'application/octet-stream',
+        mimeType: mimeType,
         body: fileStream,
       },
-      fields: 'id,name,webViewLink',
+      fields: 'id,name,webViewLink,mimeType',
     }, {
       // Set a longer timeout
       timeout: 60000,

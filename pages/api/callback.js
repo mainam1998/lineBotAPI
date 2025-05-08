@@ -139,12 +139,31 @@ export default async function handler(req, res) {
       }
     }
 
-    // Handle file or image message
-    if (event.message.type === 'file' || event.message.type === 'image') {
-      // For image messages, we need to set a filename
-      const fileName = event.message.type === 'image'
-        ? `image_${event.message.id}.jpg`
-        : event.message.fileName;
+    // Handle file, image, video, or audio message
+    if (['file', 'image', 'video', 'audio'].includes(event.message.type)) {
+      // Generate filename based on message type
+      let fileName;
+      let fileExtension;
+
+      switch (event.message.type) {
+        case 'file':
+          fileName = event.message.fileName;
+          break;
+        case 'image':
+          fileExtension = '.jpg';
+          fileName = `image_${event.message.id}${fileExtension}`;
+          break;
+        case 'video':
+          fileExtension = '.mp4';
+          fileName = `video_${event.message.id}${fileExtension}`;
+          break;
+        case 'audio':
+          fileExtension = '.m4a';
+          fileName = `audio_${event.message.id}${fileExtension}`;
+          break;
+        default:
+          fileName = `file_${event.message.id}`;
+      }
       console.log('[DEBUG] Handling message type:', event.message.type, 'with filename:', fileName);
 
       try {
@@ -181,9 +200,25 @@ export default async function handler(req, res) {
         }
         // Send initial response to user
         console.log('[DEBUG] Sending initial response to user');
+        // Get message type in Thai
+        let messageTypeInThai;
+        switch (event.message.type) {
+          case 'image':
+            messageTypeInThai = 'รูปภาพ';
+            break;
+          case 'video':
+            messageTypeInThai = 'วิดีโอ';
+            break;
+          case 'audio':
+            messageTypeInThai = 'ไฟล์เสียง';
+            break;
+          default:
+            messageTypeInThai = 'ไฟล์';
+        }
+
         await replyMessage(lineClient, event.replyToken, {
           type: 'text',
-          text: `กำลังอัปโหลด${event.message.type === 'image' ? 'รูปภาพ' : 'ไฟล์'} "${fileName}" (${(buffer.length / (1024 * 1024)).toFixed(2)} MB)...`,
+          text: `กำลังอัปโหลด${messageTypeInThai} "${fileName}" (${(buffer.length / (1024 * 1024)).toFixed(2)} MB)...`,
         });
         console.log('[DEBUG] Initial response sent');
 
@@ -204,9 +239,25 @@ export default async function handler(req, res) {
         }
 
         // Send success message to user
+        // Get message type in Thai (reuse the same logic)
+        let messageTypeInThai;
+        switch (event.message.type) {
+          case 'image':
+            messageTypeInThai = 'รูปภาพ';
+            break;
+          case 'video':
+            messageTypeInThai = 'วิดีโอ';
+            break;
+          case 'audio':
+            messageTypeInThai = 'ไฟล์เสียง';
+            break;
+          default:
+            messageTypeInThai = 'ไฟล์';
+        }
+
         await lineClient.pushMessage(event.source.userId, {
           type: 'text',
-          text: `${event.message.type === 'image' ? 'รูปภาพ' : 'ไฟล์'} "${uploadResult.name}" ถูกอัปโหลดเรียบร้อยแล้ว${uploadResult.webViewLink ? `\nลิงก์: ${uploadResult.webViewLink}` : ''}`,
+          text: `${messageTypeInThai} "${uploadResult.name}" ถูกอัปโหลดเรียบร้อยแล้ว${uploadResult.webViewLink ? `\nลิงก์: ${uploadResult.webViewLink}` : ''}`,
         });
       } catch (error) {
         console.error('[ERROR] Error handling file message:', error);
