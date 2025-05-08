@@ -1,4 +1,4 @@
-import { Client } from '@line/bot-sdk';
+import { Client, validateSignature } from '@line/bot-sdk';
 
 /**
  * Initialize LINE client
@@ -9,7 +9,7 @@ export const initLineClient = () => {
     channelSecret: process.env.LINE_CHANNEL_SECRET,
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   };
-  
+
   return new Client(lineConfig);
 };
 
@@ -24,8 +24,8 @@ export const verifySignature = (signature, body) => {
     channelSecret: process.env.LINE_CHANNEL_SECRET,
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   };
-  
-  return Client.validateSignature(body, lineConfig.channelSecret, signature);
+
+  return validateSignature(body, lineConfig.channelSecret, signature);
 };
 
 /**
