@@ -1,5 +1,5 @@
-import { initLineClient, verifySignature, replyMessage } from '../utils/lineClient';
-import { initGoogleDrive, streamToBuffer, resumableUpload, listFiles } from '../utils/googleDrive';
+import { initLineClient, verifySignature, replyMessage } from '../../utils/lineClient';
+import { initGoogleDrive, streamToBuffer, resumableUpload, listFiles } from '../../utils/googleDrive';
 
 export default async function handler(req, res) {
   // Only allow POST requests
