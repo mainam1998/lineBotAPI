@@ -151,39 +151,56 @@ export default function Home() {
 
           {!dashboardLoading && !dashboardError && files.length > 0 && (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #ddd' }}>
-                    <th style={{ padding: '8px', textAlign: 'left' }}>ชื่อไฟล์</th>
-                    <th style={{ padding: '8px', textAlign: 'left' }}>ประเภท</th>
-                    <th style={{ padding: '8px', textAlign: 'left' }}>ขนาด</th>
-                    <th style={{ padding: '8px', textAlign: 'left' }}>วันที่อัพโหลด</th>
-                    <th style={{ padding: '8px', textAlign: 'left' }}>ลิงก์</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {files.map((file) => (
-                    <tr key={file.id} style={{ borderBottom: '1px solid #ddd' }}>
-                      <td style={{ padding: '8px' }}>{file.name}</td>
-                      <td style={{ padding: '8px' }}>{file.mimeType.split('/').pop()}</td>
-                      <td style={{ padding: '8px' }}>{file.size}</td>
-                      <td style={{ padding: '8px' }}>{file.createdTime}</td>
-                      <td style={{ padding: '8px' }}>
-                        {file.webViewLink ? (
-                          <a
-                            href={file.webViewLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: '#4285F4', textDecoration: 'none' }}
-                          >
-                            เปิดไฟล์
-                          </a>
-                        ) : 'ไม่มีลิงก์'}
-                      </td>
+              <div style={{
+                maxHeight: '500px',
+                overflowY: 'auto',
+                border: '1px solid #eaeaea',
+                borderRadius: '4px'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead style={{ position: 'sticky', top: 0, backgroundColor: '#f9f9f9', zIndex: 1 }}>
+                    <tr style={{ borderBottom: '2px solid #ddd' }}>
+                      <th style={{ padding: '12px 8px', textAlign: 'left' }}>ชื่อไฟล์</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'left' }}>ประเภท</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'left' }}>ขนาด</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'left' }}>วันที่อัพโหลด</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'left' }}>ลิงก์</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {files.map((file) => (
+                      <tr key={file.id} style={{ borderBottom: '1px solid #ddd' }}>
+                        <td style={{ padding: '10px 8px' }}>{file.name}</td>
+                        <td style={{ padding: '10px 8px' }}>{file.mimeType.split('/').pop()}</td>
+                        <td style={{ padding: '10px 8px' }}>{file.size}</td>
+                        <td style={{ padding: '10px 8px' }}>{file.createdTime}</td>
+                        <td style={{ padding: '10px 8px' }}>
+                          {file.webViewLink ? (
+                            <a
+                              href={file.webViewLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: '#4285F4',
+                                textDecoration: 'none',
+                                padding: '5px 10px',
+                                backgroundColor: '#E8F0FE',
+                                borderRadius: '4px',
+                                display: 'inline-block'
+                              }}
+                            >
+                              เปิดไฟล์
+                            </a>
+                          ) : 'ไม่มีลิงก์'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: '10px', fontSize: '0.9rem', color: '#666' }}>
+                แสดงรายการทั้งหมด {files.length} รายการ
+              </div>
             </div>
           )}
         </div>

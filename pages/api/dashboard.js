@@ -10,32 +10,32 @@ export default async function handler(req, res) {
     // Check if Google Drive credentials are set
     if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
       // ถ้าไม่มีการตั้งค่า credentials ให้ส่งข้อมูลตัวอย่างกลับไปเพื่อการทดสอบ UI
-      const mockFiles = [
-        {
-          id: 'mock1',
-          name: 'ตัวอย่างรูปภาพ.jpg',
-          mimeType: 'image/jpeg',
-          size: '2.50 MB',
-          createdTime: new Date().toLocaleString('th-TH'),
-          webViewLink: 'https://example.com/view1'
-        },
-        {
-          id: 'mock2',
-          name: 'ตัวอย่างเอกสาร.pdf',
-          mimeType: 'application/pdf',
-          size: '1.25 MB',
-          createdTime: new Date(Date.now() - 86400000).toLocaleString('th-TH'), // เมื่อวาน
-          webViewLink: 'https://example.com/view2'
-        },
-        {
-          id: 'mock3',
-          name: 'ตัวอย่างวิดีโอ.mp4',
-          mimeType: 'video/mp4',
-          size: '15.75 MB',
-          createdTime: new Date(Date.now() - 172800000).toLocaleString('th-TH'), // 2 วันก่อน
-          webViewLink: 'https://example.com/view3'
-        }
+      // สร้างข้อมูลตัวอย่าง 20 รายการ
+      const mockFiles = [];
+      const fileTypes = [
+        { name: 'รูปภาพ', ext: '.jpg', mime: 'image/jpeg', sizeRange: [1, 5] },
+        { name: 'เอกสาร', ext: '.pdf', mime: 'application/pdf', sizeRange: [0.5, 3] },
+        { name: 'วิดีโอ', ext: '.mp4', mime: 'video/mp4', sizeRange: [10, 30] },
+        { name: 'ไฟล์เสียง', ext: '.mp3', mime: 'audio/mpeg', sizeRange: [3, 8] },
+        { name: 'สเปรดชีต', ext: '.xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', sizeRange: [0.2, 2] },
+        { name: 'นำเสนอ', ext: '.pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', sizeRange: [1, 6] },
+        { name: 'ข้อความ', ext: '.txt', mime: 'text/plain', sizeRange: [0.01, 0.5] },
       ];
+
+      for (let i = 1; i <= 20; i++) {
+        const fileType = fileTypes[Math.floor(Math.random() * fileTypes.length)];
+        const size = (fileType.sizeRange[0] + Math.random() * (fileType.sizeRange[1] - fileType.sizeRange[0])).toFixed(2);
+        const daysAgo = Math.floor(Math.random() * 30); // สุ่มวันที่ในช่วง 30 วันที่ผ่านมา
+
+        mockFiles.push({
+          id: `mock${i}`,
+          name: `ตัวอย่าง${fileType.name}_${i}${fileType.ext}`,
+          mimeType: fileType.mime,
+          size: `${size} MB`,
+          createdTime: new Date(Date.now() - (daysAgo * 86400000)).toLocaleString('th-TH'),
+          webViewLink: `https://example.com/view${i}`
+        });
+      }
 
       return res.status(200).json({
         status: 'warning',
