@@ -1,6 +1,20 @@
 import { initLineClient, verifySignature, replyMessage } from '../../utils/lineClient';
 import { initGoogleDrive, streamToBuffer, resumableUpload, listFiles } from '../../utils/googleDrive';
 
+// Helper function to get message type in Thai
+function getMessageTypeInThai(messageType) {
+  switch (messageType) {
+    case 'image':
+      return 'รูปภาพ';
+    case 'video':
+      return 'วิดีโอ';
+    case 'audio':
+      return 'ไฟล์เสียง';
+    default:
+      return 'ไฟล์';
+  }
+}
+
 export default async function handler(req, res) {
   // Log request method and path
   console.log(`[DEBUG] Request: ${req.method} ${req.url}`);
@@ -201,20 +215,7 @@ export default async function handler(req, res) {
         // Send initial response to user
         console.log('[DEBUG] Sending initial response to user');
         // Get message type in Thai
-        let messageTypeInThai;
-        switch (event.message.type) {
-          case 'image':
-            messageTypeInThai = 'รูปภาพ';
-            break;
-          case 'video':
-            messageTypeInThai = 'วิดีโอ';
-            break;
-          case 'audio':
-            messageTypeInThai = 'ไฟล์เสียง';
-            break;
-          default:
-            messageTypeInThai = 'ไฟล์';
-        }
+        const messageTypeInThai = getMessageTypeInThai(event.message.type);
 
         await replyMessage(lineClient, event.replyToken, {
           type: 'text',
@@ -239,21 +240,7 @@ export default async function handler(req, res) {
         }
 
         // Send success message to user
-        // Get message type in Thai (reuse the same logic)
-        let messageTypeInThai;
-        switch (event.message.type) {
-          case 'image':
-            messageTypeInThai = 'รูปภาพ';
-            break;
-          case 'video':
-            messageTypeInThai = 'วิดีโอ';
-            break;
-          case 'audio':
-            messageTypeInThai = 'ไฟล์เสียง';
-            break;
-          default:
-            messageTypeInThai = 'ไฟล์';
-        }
+        // Get message type in Thai (reuse the same value from before)
 
         await lineClient.pushMessage(event.source.userId, {
           type: 'text',
