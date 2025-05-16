@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 export default function Home() {
   const [testResults, setTestResults] = useState(null);
@@ -9,6 +9,8 @@ export default function Home() {
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState(null);
   const [dashboardWarning, setDashboardWarning] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchCategory, setSearchCategory] = useState('all');
 
   const runTest = async (endpoint) => {
     setIsLoading(true);
@@ -54,71 +56,263 @@ export default function Home() {
     const interval = setInterval(fetchFiles, 60000);
     return () => clearInterval(interval);
   }, []);
+  // ฟังก์ชันกำหนดสีตามประเภทไฟล์
+  const getTypeColor = (mimeType) => {
+    const type = mimeType.split('/')[0];
+    const subtype = mimeType.split('/')[1];
+
+    // กำหนดสีตามประเภทหลัก
+    switch (type) {
+      case 'image':
+        return '#4285F4'; // สีน้ำเงิน
+      case 'video':
+        return '#EA4335'; // สีแดง
+      case 'audio':
+        return '#FBBC05'; // สีเหลือง
+      case 'application':
+        // กำหนดสีตามประเภทย่อย
+        if (subtype.includes('pdf')) {
+          return '#FF5722'; // สีส้มแดง
+        } else if (subtype.includes('word') || subtype.includes('document')) {
+          return '#4285F4'; // สีน้ำเงิน
+        } else if (subtype.includes('sheet') || subtype.includes('excel')) {
+          return '#0F9D58'; // สีเขียว
+        } else if (subtype.includes('presentation') || subtype.includes('powerpoint')) {
+          return '#FF9800'; // สีส้ม
+        } else if (subtype.includes('zip') || subtype.includes('compressed')) {
+          return '#795548'; // สีน้ำตาล
+        }
+        return '#607D8B'; // สีเทาสำหรับ application ทั่วไป
+      case 'text':
+        return '#0F9D58'; // สีเขียว
+      default:
+        return '#9E9E9E'; // สีเทาสำหรับประเภทที่ไม่รู้จัก
+    }
+  };
+
+  // กรองไฟล์ตามคำค้นหาและหมวดหมู่
+  const filteredFiles = useMemo(() => {
+    if (!searchTerm) return files;
+
+    return files.filter(file => {
+      const searchLower = searchTerm.toLowerCase();
+
+      // ค้นหาตามหมวดหมู่ที่เลือก
+      if (searchCategory === 'name') {
+        return file.name.toLowerCase().includes(searchLower);
+      } else if (searchCategory === 'type') {
+        return file.mimeType.toLowerCase().includes(searchLower);
+      } else if (searchCategory === 'size') {
+        return file.size.toLowerCase().includes(searchLower);
+      } else if (searchCategory === 'date') {
+        return file.createdTime.toLowerCase().includes(searchLower);
+      } else {
+        // ค้นหาทุกหมวดหมู่
+        return (
+          file.name.toLowerCase().includes(searchLower) ||
+          file.mimeType.toLowerCase().includes(searchLower) ||
+          file.size.toLowerCase().includes(searchLower) ||
+          file.createdTime.toLowerCase().includes(searchLower)
+        );
+      }
+    });
+  }, [files, searchTerm, searchCategory]);
+
   return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
       minHeight: '100vh',
-      padding: '0 2rem',
-      textAlign: 'center'
+      padding: '2rem',
+      textAlign: 'center',
+      backgroundColor: '#f8f9fa',
+      fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif'
     }}>
       <Head>
         <title>LINE File Bot</title>
         <meta name="description" content="LINE Bot for uploading files to Google Drive" />
         <link rel="icon" href="/favicon.ico" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <main>
-        <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>
-          LINE File Bot
-        </h1>
-        <p style={{ fontSize: '1.25rem', marginBottom: '2rem' }}>
-          This bot receives files from LINE and uploads them to Google Drive.
-        </p>
+      <main style={{ width: '100%', maxWidth: '1200px' }}>
+        <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+          <h1 style={{
+            fontSize: '2.5rem',
+            marginBottom: '1rem',
+            color: '#00B900', // LINE สีเขียว
+            fontWeight: '700'
+          }}>
+            LINE File Bot
+          </h1>
+          <p style={{
+            fontSize: '1.25rem',
+            marginBottom: '1rem',
+            color: '#555',
+            maxWidth: '800px',
+            margin: '0 auto'
+          }}>
+            บอทรับไฟล์จาก LINE และอัพโหลดไปยัง Google Drive โดยอัตโนมัติ
+          </p>
+        </div>
         <div style={{
           padding: '1.5rem',
-          border: '1px solid #eaeaea',
+          border: '1px solid #e1e4e8',
           borderRadius: '10px',
-          backgroundColor: '#f9f9f9',
-          marginBottom: '2rem'
+          backgroundColor: 'white',
+          marginBottom: '2rem',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
         }}>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Status</h2>
-          <p>
-            Webhook URL: <code>/api/callback</code>
-          </p>
-          <p style={{ marginTop: '1rem' }}>
-            Bot is ready to receive messages
-          </p>
+          <h2 style={{
+            fontSize: '1.5rem',
+            marginBottom: '1rem',
+            color: '#333',
+            fontWeight: '600'
+          }}>สถานะระบบ</h2>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem'
+          }}>
+            <div style={{ textAlign: 'left' }}>
+              <p>
+                Webhook URL: <code style={{ backgroundColor: '#f1f1f1', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>/api/callback</code>
+              </p>
+              <p style={{ marginTop: '0.5rem', color: '#00B900', fontWeight: '500' }}>
+                <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#00B900', marginRight: '8px' }}></span>
+                บอทพร้อมรับข้อความแล้ว
+              </p>
+            </div>
+            <div>
+              <button
+                onClick={() => fetchFiles()}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#00B900',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                <span>&#x21bb;</span> รีเฟรชข้อมูล
+              </button>
+            </div>
+          </div>
         </div>
 
         <div style={{
           padding: '1.5rem',
-          border: '1px solid #eaeaea',
+          border: '1px solid #e1e4e8',
           borderRadius: '10px',
-          backgroundColor: '#f9f9f9',
-          marginBottom: '2rem'
+          backgroundColor: 'white',
+          marginBottom: '2rem',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>รายการไฟล์ที่อัพโหลด</h2>
-            <button
-              onClick={fetchFiles}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.5rem', margin: 0, color: '#333', fontWeight: '600' }}>รายการไฟล์ที่อัพโหลด</h2>
+          </div>
+
+          {/* ช่องค้นหา */}
+          <div style={{
+            display: 'flex',
+            gap: '10px',
+            marginBottom: '1.5rem',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{
+              flex: '1',
+              minWidth: '250px',
+              position: 'relative'
+            }}>
+              <input
+                type="text"
+                placeholder="ค้นหาไฟล์..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 15px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                  boxSizing: 'border-box'
+                }}
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    color: '#999'
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <select
+              value={searchCategory}
+              onChange={(e) => setSearchCategory(e.target.value)}
               style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#4CAF50',
-                color: 'white',
-                border: 'none',
+                padding: '10px 15px',
+                border: '1px solid #ddd',
                 borderRadius: '4px',
-                cursor: 'pointer'
+                backgroundColor: 'white',
+                fontSize: '1rem',
+                outline: 'none'
               }}
             >
-              รีเฟรช
-            </button>
+              <option value="all">ทั้งหมด</option>
+              <option value="name">ชื่อไฟล์</option>
+              <option value="type">ประเภท</option>
+              <option value="size">ขนาด</option>
+              <option value="date">วันที่อัพโหลด</option>
+            </select>
           </div>
 
           {dashboardLoading && (
-            <p>กำลังโหลดข้อมูล...</p>
+            <div style={{
+              padding: '20px',
+              textAlign: 'center',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              margin: '20px 0'
+            }}>
+              <div style={{
+                display: 'inline-block',
+                width: '40px',
+                height: '40px',
+                border: '4px solid rgba(0, 185, 0, 0.1)',
+                borderTopColor: '#00B900',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                marginBottom: '10px'
+              }} />
+              <p style={{ color: '#555', marginTop: '10px' }}>กำลังโหลดข้อมูล...</p>
+              <style jsx>{`
+                @keyframes spin {
+                  to { transform: rotate(360deg); }
+                }
+              `}</style>
+            </div>
           )}
 
           {dashboardError && (
@@ -126,10 +320,18 @@ export default function Home() {
               padding: '1rem',
               backgroundColor: '#FFEBEE',
               color: '#D32F2F',
-              borderRadius: '4px',
-              marginBottom: '1rem'
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
             }}>
-              <p><strong>ข้อผิดพลาด:</strong> {dashboardError}</p>
+              <div style={{ fontSize: '24px' }}>⚠️</div>
+              <div>
+                <p style={{ margin: 0, fontWeight: '500' }}>ข้อผิดพลาด</p>
+                <p style={{ margin: '4px 0 0 0' }}>{dashboardError}</p>
+              </div>
             </div>
           )}
 
@@ -138,15 +340,38 @@ export default function Home() {
               padding: '1rem',
               backgroundColor: '#FFF8E1',
               color: '#F57F17',
-              borderRadius: '4px',
-              marginBottom: '1rem'
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
             }}>
-              <p><strong>คำเตือน:</strong> {dashboardWarning}</p>
+              <div style={{ fontSize: '24px' }}>ℹ️</div>
+              <div>
+                <p style={{ margin: 0, fontWeight: '500' }}>คำเตือน</p>
+                <p style={{ margin: '4px 0 0 0' }}>{dashboardWarning}</p>
+              </div>
             </div>
           )}
 
           {!dashboardLoading && !dashboardError && files.length === 0 && (
-            <p>ไม่พบไฟล์ในโฟลเดอร์</p>
+            <div style={{
+              padding: '40px 20px',
+              textAlign: 'center',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              margin: '20px 0',
+              border: '1px dashed #ddd'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '15px', color: '#ccc' }}>
+                📁
+              </div>
+              <p style={{ fontSize: '1.1rem', color: '#666', margin: 0 }}>ไม่พบไฟล์ในโฟลเดอร์</p>
+              <p style={{ fontSize: '0.9rem', color: '#999', marginTop: '10px' }}>
+                ส่งไฟล์ผ่าน LINE เพื่ออัพโหลดไปยัง Google Drive
+              </p>
+            </div>
           )}
 
           {!dashboardLoading && !dashboardError && files.length > 0 && (
@@ -154,52 +379,113 @@ export default function Home() {
               <div style={{
                 maxHeight: '500px',
                 overflowY: 'auto',
-                border: '1px solid #eaeaea',
-                borderRadius: '4px'
+                border: '1px solid #e1e4e8',
+                borderRadius: '8px',
+                backgroundColor: 'white'
               }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead style={{ position: 'sticky', top: 0, backgroundColor: '#f9f9f9', zIndex: 1 }}>
-                    <tr style={{ borderBottom: '2px solid #ddd' }}>
-                      <th style={{ padding: '12px 8px', textAlign: 'left' }}>ชื่อไฟล์</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left' }}>ประเภท</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left' }}>ขนาด</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left' }}>วันที่อัพโหลด</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left' }}>ลิงก์</th>
+                  <thead style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 1 }}>
+                    <tr style={{ borderBottom: '2px solid #e1e4e8' }}>
+                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#444', fontWeight: '600' }}>ชื่อไฟล์</th>
+                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#444', fontWeight: '600' }}>ประเภท</th>
+                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#444', fontWeight: '600' }}>ขนาด</th>
+                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#444', fontWeight: '600' }}>วันที่อัพโหลด</th>
+                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#444', fontWeight: '600' }}>ลิงก์</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {files.map((file) => (
-                      <tr key={file.id} style={{ borderBottom: '1px solid #ddd' }}>
-                        <td style={{ padding: '10px 8px' }}>{file.name}</td>
-                        <td style={{ padding: '10px 8px' }}>{file.mimeType.split('/').pop()}</td>
-                        <td style={{ padding: '10px 8px' }}>{file.size}</td>
-                        <td style={{ padding: '10px 8px' }}>{file.createdTime}</td>
-                        <td style={{ padding: '10px 8px' }}>
-                          {file.webViewLink ? (
-                            <a
-                              href={file.webViewLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                color: '#4285F4',
-                                textDecoration: 'none',
-                                padding: '5px 10px',
-                                backgroundColor: '#E8F0FE',
-                                borderRadius: '4px',
-                                display: 'inline-block'
-                              }}
-                            >
-                              เปิดไฟล์
-                            </a>
-                          ) : 'ไม่มีลิงก์'}
+                    {filteredFiles.length > 0 ? (
+                      filteredFiles.map((file) => (
+                        <tr key={file.id} style={{ borderBottom: '1px solid #e1e4e8', transition: 'background-color 0.2s' }}>
+                          <td style={{ padding: '12px', color: '#333' }}>{file.name}</td>
+                          <td style={{ padding: '12px', color: '#555' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '4px 8px',
+                              backgroundColor: getTypeColor(file.mimeType),
+                              color: 'white',
+                              borderRadius: '4px',
+                              fontSize: '0.85rem'
+                            }}>
+                              {file.mimeType.split('/').pop()}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', color: '#555' }}>{file.size}</td>
+                          <td style={{ padding: '12px', color: '#555' }}>{file.createdTime}</td>
+                          <td style={{ padding: '12px' }}>
+                            {file.webViewLink ? (
+                              <a
+                                href={file.webViewLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  color: '#00B900',
+                                  textDecoration: 'none',
+                                  padding: '6px 12px',
+                                  backgroundColor: '#f0fff0',
+                                  border: '1px solid #00B900',
+                                  borderRadius: '4px',
+                                  display: 'inline-block',
+                                  fontSize: '0.9rem',
+                                  fontWeight: '500',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseOver={(e) => {
+                                  e.target.style.backgroundColor = '#00B900';
+                                  e.target.style.color = 'white';
+                                }}
+                                onMouseOut={(e) => {
+                                  e.target.style.backgroundColor = '#f0fff0';
+                                  e.target.style.color = '#00B900';
+                                }}
+                              >
+                                เปิดไฟล์
+                              </a>
+                            ) : (
+                              <span style={{ color: '#999', fontSize: '0.9rem' }}>ไม่มีลิงก์</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                          ไม่พบไฟล์ที่ตรงกับคำค้นหา
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
-              <div style={{ marginTop: '10px', fontSize: '0.9rem', color: '#666' }}>
-                แสดงรายการทั้งหมด {files.length} รายการ
+              <div style={{
+                marginTop: '15px',
+                fontSize: '0.9rem',
+                color: '#666',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <span>
+                  {searchTerm ?
+                    `พบ ${filteredFiles.length} รายการ จากทั้งหมด ${files.length} รายการ` :
+                    `แสดงรายการทั้งหมด ${files.length} รายการ`
+                  }
+                </span>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#00B900',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      padding: '4px 8px'
+                    }}
+                  >
+                    ล้างการค้นหา
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -207,59 +493,113 @@ export default function Home() {
 
         <div style={{
           padding: '1.5rem',
-          border: '1px solid #eaeaea',
+          border: '1px solid #e1e4e8',
           borderRadius: '10px',
-          backgroundColor: '#f9f9f9',
-          marginBottom: '2rem'
+          backgroundColor: 'white',
+          marginBottom: '2rem',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
         }}>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Test Tools</h2>
+          <h2 style={{
+            fontSize: '1.5rem',
+            marginBottom: '1.5rem',
+            color: '#333',
+            fontWeight: '600'
+          }}>เครื่องมือทดสอบระบบ</h2>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '1rem',
+            marginBottom: '1.5rem',
+            flexWrap: 'wrap'
+          }}>
             <button
               onClick={() => runTest('test')}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.75rem 1.25rem',
                 backgroundColor: '#4CAF50',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#43A047'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#4CAF50'}
             >
-              Test API
+              <span>⚙️</span> ทดสอบ API
             </button>
 
             <button
               onClick={() => runTest('line-test')}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.75rem 1.25rem',
                 backgroundColor: '#00B900',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#00A000'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#00B900'}
             >
-              Test LINE API
+              <span>💬</span> ทดสอบ LINE API
             </button>
 
             <button
               onClick={() => runTest('drive-test')}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.75rem 1.25rem',
                 backgroundColor: '#4285F4',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#3B78E7'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#4285F4'}
             >
-              Test Google Drive API
+              <span>📂</span> ทดสอบ Google Drive API
             </button>
           </div>
 
           {isLoading && (
-            <p>Loading...</p>
+            <div style={{
+              padding: '20px',
+              textAlign: 'center',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              margin: '20px 0'
+            }}>
+              <div style={{
+                display: 'inline-block',
+                width: '30px',
+                height: '30px',
+                border: '3px solid rgba(0, 0, 0, 0.1)',
+                borderTopColor: '#666',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                marginBottom: '10px'
+              }} />
+              <p style={{ color: '#555', marginTop: '10px' }}>กำลังทดสอบ...</p>
+            </div>
           )}
 
           {error && (
@@ -267,61 +607,132 @@ export default function Home() {
               padding: '1rem',
               backgroundColor: '#FFEBEE',
               color: '#D32F2F',
-              borderRadius: '4px',
-              marginBottom: '1rem'
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
             }}>
-              <p><strong>Error:</strong> {error}</p>
+              <div style={{ fontSize: '24px', marginTop: '2px' }}>⚠️</div>
+              <div>
+                <p style={{ margin: 0, fontWeight: '500' }}>ข้อผิดพลาด</p>
+                <p style={{ margin: '4px 0 0 0' }}>{error}</p>
+              </div>
             </div>
           )}
 
           {testResults && (
             <div style={{
-              padding: '1rem',
-              backgroundColor: testResults.status === 'ok' ? '#E8F5E9' : '#FFEBEE',
-              color: testResults.status === 'ok' ? '#2E7D32' : '#D32F2F',
-              borderRadius: '4px',
+              padding: '1.5rem',
+              backgroundColor: testResults.status === 'ok' ? '#f0fff0' : '#FFF8E1',
+              color: testResults.status === 'ok' ? '#2E7D32' : '#F57F17',
+              borderRadius: '8px',
               textAlign: 'left',
-              maxHeight: '300px',
-              overflowY: 'auto'
+              maxHeight: '400px',
+              overflowY: 'auto',
+              border: `1px solid ${testResults.status === 'ok' ? '#C8E6C9' : '#FFE0B2'}`,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
             }}>
-              <p><strong>Status:</strong> {testResults.status}</p>
-              <p><strong>Message:</strong> {testResults.message}</p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '15px',
+                padding: '0 0 15px 0',
+                borderBottom: `1px solid ${testResults.status === 'ok' ? '#C8E6C9' : '#FFE0B2'}`
+              }}>
+                <div style={{ fontSize: '24px' }}>
+                  {testResults.status === 'ok' ? '✅' : '⚠️'}
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontWeight: '600', fontSize: '1.1rem' }}>
+                    สถานะ: {testResults.status === 'ok' ? 'สำเร็จ' : 'ไม่สำเร็จ'}
+                  </p>
+                  <p style={{ margin: '4px 0 0 0', color: testResults.status === 'ok' ? '#388E3C' : '#E65100' }}>
+                    {testResults.message}
+                  </p>
+                </div>
+              </div>
 
               {testResults.env && (
-                <div>
-                  <p><strong>Environment Variables:</strong></p>
-                  <ul>
-                    {Object.entries(testResults.env).map(([key, value]) => (
-                      <li key={key}>{key}: {String(value)}</li>
-                    ))}
-                  </ul>
+                <div style={{ marginBottom: '20px' }}>
+                  <p style={{ fontWeight: '600', marginBottom: '8px', color: '#333' }}>ตัวแปรสภาพแวดล้อม:</p>
+                  <div style={{
+                    backgroundColor: 'rgba(255,255,255,0.5)',
+                    padding: '10px 15px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(0,0,0,0.05)'
+                  }}>
+                    <ul style={{ margin: '0', paddingLeft: '20px' }}>
+                      {Object.entries(testResults.env).map(([key, value]) => (
+                        <li key={key} style={{ margin: '6px 0' }}>
+                          <span style={{ fontWeight: '500' }}>{key}:</span> {String(value)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               )}
 
               {testResults.botInfo && (
-                <div>
-                  <p><strong>Bot Info:</strong></p>
-                  <pre style={{ whiteSpace: 'pre-wrap' }}>
-                    {JSON.stringify(testResults.botInfo, null, 2)}
-                  </pre>
+                <div style={{ marginBottom: '20px' }}>
+                  <p style={{ fontWeight: '600', marginBottom: '8px', color: '#333' }}>ข้อมูลบอท:</p>
+                  <div style={{
+                    backgroundColor: 'rgba(255,255,255,0.5)',
+                    padding: '10px 15px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(0,0,0,0.05)'
+                  }}>
+                    <pre style={{
+                      whiteSpace: 'pre-wrap',
+                      margin: 0,
+                      fontFamily: 'monospace',
+                      fontSize: '0.9rem'
+                    }}>
+                      {JSON.stringify(testResults.botInfo, null, 2)}
+                    </pre>
+                  </div>
                 </div>
               )}
 
               {testResults.files && (
-                <div>
-                  <p><strong>Files:</strong></p>
-                  <pre style={{ whiteSpace: 'pre-wrap' }}>
-                    {JSON.stringify(testResults.files, null, 2)}
-                  </pre>
+                <div style={{ marginBottom: '20px' }}>
+                  <p style={{ fontWeight: '600', marginBottom: '8px', color: '#333' }}>ไฟล์:</p>
+                  <div style={{
+                    backgroundColor: 'rgba(255,255,255,0.5)',
+                    padding: '10px 15px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(0,0,0,0.05)'
+                  }}>
+                    <pre style={{
+                      whiteSpace: 'pre-wrap',
+                      margin: 0,
+                      fontFamily: 'monospace',
+                      fontSize: '0.9rem'
+                    }}>
+                      {JSON.stringify(testResults.files, null, 2)}
+                    </pre>
+                  </div>
                 </div>
               )}
 
               {testResults.error && (
-                <div>
-                  <p><strong>Error Details:</strong> {testResults.error}</p>
-                  {testResults.privateKeyHint && (
-                    <p><strong>Hint:</strong> {testResults.privateKeyHint}</p>
-                  )}
+                <div style={{ marginBottom: '20px' }}>
+                  <p style={{ fontWeight: '600', marginBottom: '8px', color: '#D32F2F' }}>รายละเอียดข้อผิดพลาด:</p>
+                  <div style={{
+                    backgroundColor: 'rgba(255,255,255,0.5)',
+                    padding: '10px 15px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(0,0,0,0.05)'
+                  }}>
+                    <p style={{ margin: '0', color: '#D32F2F' }}>{testResults.error}</p>
+                    {testResults.privateKeyHint && (
+                      <p style={{ margin: '10px 0 0 0', fontWeight: '500' }}>
+                        <strong>คำแนะนำ:</strong> {testResults.privateKeyHint}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
