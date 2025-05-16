@@ -1,10 +1,14 @@
 import Head from 'next/head';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Home() {
   const [testResults, setTestResults] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [files, setFiles] = useState([]);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState(null);
+  const [dashboardWarning, setDashboardWarning] = useState(null);
 
   const runTest = async (endpoint) => {
     setIsLoading(true);
@@ -19,6 +23,37 @@ export default function Home() {
       setIsLoading(false);
     }
   };
+
+  const fetchFiles = async () => {
+    setDashboardLoading(true);
+    setDashboardError(null);
+    try {
+      const response = await fetch('/api/dashboard');
+      const data = await response.json();
+      if (data.status === 'ok' || data.status === 'warning') {
+        setFiles(data.files);
+
+        if (data.status === 'warning') {
+          setDashboardWarning(data.message);
+        } else {
+          setDashboardWarning(null);
+        }
+      } else {
+        setDashboardError(data.message || 'เกิดข้อผิดพลาดในการดึงข้อมูลไฟล์');
+      }
+    } catch (err) {
+      setDashboardError(err.message);
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFiles();
+    // ตั้งเวลาดึงข้อมูลใหม่ทุก 1 นาที
+    const interval = setInterval(fetchFiles, 60000);
+    return () => clearInterval(interval);
+  }, []);
   return (
     <div style={{
       display: 'flex',
@@ -56,6 +91,101 @@ export default function Home() {
           <p style={{ marginTop: '1rem' }}>
             Bot is ready to receive messages
           </p>
+        </div>
+
+        <div style={{
+          padding: '1.5rem',
+          border: '1px solid #eaeaea',
+          borderRadius: '10px',
+          backgroundColor: '#f9f9f9',
+          marginBottom: '2rem'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>รายการไฟล์ที่อัพโหลด</h2>
+            <button
+              onClick={fetchFiles}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              รีเฟรช
+            </button>
+          </div>
+
+          {dashboardLoading && (
+            <p>กำลังโหลดข้อมูล...</p>
+          )}
+
+          {dashboardError && (
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#FFEBEE',
+              color: '#D32F2F',
+              borderRadius: '4px',
+              marginBottom: '1rem'
+            }}>
+              <p><strong>ข้อผิดพลาด:</strong> {dashboardError}</p>
+            </div>
+          )}
+
+          {dashboardWarning && (
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#FFF8E1',
+              color: '#F57F17',
+              borderRadius: '4px',
+              marginBottom: '1rem'
+            }}>
+              <p><strong>คำเตือน:</strong> {dashboardWarning}</p>
+            </div>
+          )}
+
+          {!dashboardLoading && !dashboardError && files.length === 0 && (
+            <p>ไม่พบไฟล์ในโฟลเดอร์</p>
+          )}
+
+          {!dashboardLoading && !dashboardError && files.length > 0 && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #ddd' }}>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>ชื่อไฟล์</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>ประเภท</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>ขนาด</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>วันที่อัพโหลด</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>ลิงก์</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {files.map((file) => (
+                    <tr key={file.id} style={{ borderBottom: '1px solid #ddd' }}>
+                      <td style={{ padding: '8px' }}>{file.name}</td>
+                      <td style={{ padding: '8px' }}>{file.mimeType.split('/').pop()}</td>
+                      <td style={{ padding: '8px' }}>{file.size}</td>
+                      <td style={{ padding: '8px' }}>{file.createdTime}</td>
+                      <td style={{ padding: '8px' }}>
+                        {file.webViewLink ? (
+                          <a
+                            href={file.webViewLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#4285F4', textDecoration: 'none' }}
+                          >
+                            เปิดไฟล์
+                          </a>
+                        ) : 'ไม่มีลิงก์'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div style={{
