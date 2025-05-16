@@ -62,9 +62,16 @@ export default async function handler(req, res) {
       );
 
       // Send success message to user
+      const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+      const successMessage = `อัพโหลดสำเร็จ
+
+ไฟล์: ${uploadResult.webViewLink || 'ไม่สามารถสร้างลิงก์ได้'}
+
+เว็บไซต์: ${webAppUrl}`;
+
       await lineClient.pushMessage(event.source.userId, {
         type: 'text',
-        text: `ไฟล์ "${uploadResult.name}" ถูกอัปโหลดเรียบร้อยแล้ว\nลิงก์: ${uploadResult.webViewLink || 'ไม่สามารถสร้างลิงก์ได้'}`,
+        text: successMessage,
       });
 
       console.log('File uploaded successfully:', uploadResult);
@@ -78,9 +85,14 @@ export default async function handler(req, res) {
     try {
       const event = req.body.events?.[0];
       if (event && event.source && event.source.userId) {
+        const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+        const errorMessage = `เกิดข้อผิดพลาดในการอัพโหลดไฟล์ กรุณาลองใหม่อีกครั้ง
+
+เว็บไซต์: ${webAppUrl}`;
+
         await lineClient.pushMessage(event.source.userId, {
           type: 'text',
-          text: 'เกิดข้อผิดพลาดในการอัปโหลดไฟล์ กรุณาลองใหม่อีกครั้ง',
+          text: errorMessage,
         });
       }
     } catch (notifyError) {

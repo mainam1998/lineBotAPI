@@ -82,13 +82,18 @@ export default async function handler(req, res) {
       // Handle commands
       if (text === 'help' || text === 'ช่วยเหลือ') {
         console.log('[DEBUG] Processing help command');
-        await lineClient.replyMessage(event.replyToken, {
-          type: 'text',
-          text: `คำสั่งที่ใช้ได้:
+        const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+        const helpMessage = `คำสั่งที่ใช้ได้:
 - help หรือ ช่วยเหลือ: แสดงคำสั่งที่ใช้ได้
 - status หรือ สถานะ: แสดงสถานะของบอท
 - list หรือ รายการ: แสดงรายการไฟล์ล่าสุด
-- ส่งไฟล์มาเพื่ออัปโหลดไปยัง Google Drive`,
+- ส่งไฟล์มาเพื่ออัปโหลดไปยัง Google Drive
+
+เว็บไซต์: ${webAppUrl}`;
+
+        await lineClient.replyMessage(event.replyToken, {
+          type: 'text',
+          text: helpMessage,
         });
         return res.status(200).end();
       }
@@ -98,19 +103,29 @@ export default async function handler(req, res) {
         try {
           const botInfo = await lineClient.getBotInfo();
 
-          await lineClient.replyMessage(event.replyToken, {
-            type: 'text',
-            text: `สถานะของบอท:
+          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const statusMessage = `สถานะของบอท:
 - ชื่อ: ${botInfo.displayName}
 - รูปภาพ: ${botInfo.pictureUrl || 'ไม่มี'}
 - สถานะ: พร้อมใช้งาน
-- โฟลเดอร์: ${process.env.GOOGLE_DRIVE_FOLDER_ID ? 'กำหนดแล้ว' : 'ยังไม่ได้กำหนด'}`,
+- โฟลเดอร์: ${process.env.GOOGLE_DRIVE_FOLDER_ID ? 'กำหนดแล้ว' : 'ยังไม่ได้กำหนด'}
+
+เว็บไซต์: ${webAppUrl}`;
+
+          await lineClient.replyMessage(event.replyToken, {
+            type: 'text',
+            text: statusMessage,
           });
         } catch (error) {
           console.error('[ERROR] Error getting bot info:', error);
+          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const botErrorMessage = `เกิดข้อผิดพลาดในการดึงข้อมูลสถานะ กรุณาลองใหม่อีกครั้ง
+
+เว็บไซต์: ${webAppUrl}`;
+
           await lineClient.replyMessage(event.replyToken, {
             type: 'text',
-            text: 'เกิดข้อผิดพลาดในการดึงข้อมูลสถานะ กรุณาลองใหม่อีกครั้ง',
+            text: botErrorMessage,
           });
         }
         return res.status(200).end();
@@ -123,9 +138,14 @@ export default async function handler(req, res) {
           const files = await listFiles(drive, process.env.GOOGLE_DRIVE_FOLDER_ID || 'root');
 
           if (files.length === 0) {
+            const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+            const noFilesMessage = `ไม่พบไฟล์ในโฟลเดอร์
+
+เว็บไซต์: ${webAppUrl}`;
+
             await lineClient.replyMessage(event.replyToken, {
               type: 'text',
-              text: 'ไม่พบไฟล์ในโฟลเดอร์',
+              text: noFilesMessage,
             });
             return res.status(200).end();
           }
@@ -138,15 +158,23 @@ export default async function handler(req, res) {
             })
             .join('\n');
 
+          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const listMessage = `ไฟล์ล่าสุด (${Math.min(files.length, 10)} จาก ${files.length}):\n${fileList}\n\nเว็บไซต์: ${webAppUrl}`;
+
           await lineClient.replyMessage(event.replyToken, {
             type: 'text',
-            text: `ไฟล์ล่าสุด (${Math.min(files.length, 10)} จาก ${files.length}):\n${fileList}`,
+            text: listMessage,
           });
         } catch (error) {
           console.error('[ERROR] Error listing files:', error);
+          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const errorMessage = `เกิดข้อผิดพลาดในการดึงรายการไฟล์ กรุณาลองใหม่อีกครั้ง
+
+เว็บไซต์: ${webAppUrl}`;
+
           await lineClient.replyMessage(event.replyToken, {
             type: 'text',
-            text: 'เกิดข้อผิดพลาดในการดึงรายการไฟล์ กรุณาลองใหม่อีกครั้ง',
+            text: errorMessage,
           });
         }
         return res.status(200).end();
@@ -242,18 +270,31 @@ export default async function handler(req, res) {
         // Send success message to user
         // Get message type in Thai (reuse the same value from before)
 
+        // สร้างข้อความตอบกลับหลังอัพโหลดสำเร็จ
+        const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+        const successMessage = `อัพโหลดสำเร็จ
+
+ไฟล์: ${uploadResult.webViewLink || 'ไม่สามารถสร้างลิงก์ได้'}
+
+เว็บไซต์: ${webAppUrl}`;
+
         await lineClient.pushMessage(event.source.userId, {
           type: 'text',
-          text: `${messageTypeInThai} "${uploadResult.name}" ถูกอัปโหลดเรียบร้อยแล้ว${uploadResult.webViewLink ? `\nลิงก์: ${uploadResult.webViewLink}` : ''}`,
+          text: successMessage,
         });
       } catch (error) {
         console.error('[ERROR] Error handling file message:', error);
 
         // Try to notify user about error
         try {
+          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const errorMessage = `เกิดข้อผิดพลาดในการอัพโหลดไฟล์ กรุณาลองใหม่อีกครั้ง
+
+เว็บไซต์: ${webAppUrl}`;
+
           await lineClient.pushMessage(event.source.userId, {
             type: 'text',
-            text: 'เกิดข้อผิดพลาดในการอัปโหลดไฟล์ กรุณาลองใหม่อีกครั้ง',
+            text: errorMessage,
           });
         } catch (notifyError) {
           console.error('[ERROR] Failed to notify user about error:', notifyError);
