@@ -90,6 +90,24 @@ export default function Home() {
     }
   };
 
+  // ฟังก์ชันสำหรับดึงนามสกุลไฟล์ให้แสดงไม่เกิน 4 ตัวอักษร
+  const getFileExtension = (fileName, mimeType) => {
+    // ถ้ามีชื่อไฟล์และมีนามสกุล
+    if (fileName && fileName.includes('.')) {
+      const extension = fileName.split('.').pop();
+      // ถ้านามสกุลมีความยาวไม่เกิน 4 ตัวอักษร ให้แสดงทั้งหมด
+      if (extension.length <= 4) {
+        return extension;
+      }
+      // ถ้านามสกุลยาวเกิน 4 ตัวอักษร ให้ตัดเหลือ 4 ตัว
+      return extension.substring(0, 4);
+    }
+
+    // ถ้าไม่มีนามสกุลในชื่อไฟล์ ให้ใช้ MIME type แทน
+    const type = mimeType.split('/').pop();
+    return type.substring(0, 4);
+  };
+
   // กรองไฟล์ตามคำค้นหาและหมวดหมู่
   const filteredFiles = useMemo(() => {
     if (!searchTerm) return files;
@@ -410,7 +428,7 @@ export default function Home() {
                               borderRadius: '4px',
                               fontSize: '0.85rem'
                             }}>
-                              {file.mimeType.split('/').pop()}
+                              {getFileExtension(file.name, file.mimeType)}
                             </span>
                           </td>
                           <td style={{ padding: '12px', color: '#fff' }}>{file.size}</td>
