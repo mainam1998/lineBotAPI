@@ -127,7 +127,7 @@ export default function Home() {
       minHeight: '100vh',
       padding: '2rem',
       textAlign: 'center',
-      backgroundColor: '#f8f9fa',
+      backgroundColor: '#020126',
       fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif'
     }}>
       <Head>
@@ -142,7 +142,7 @@ export default function Home() {
           <h1 style={{
             fontSize: '2.5rem',
             marginBottom: '1rem',
-            color: '#00B900', // LINE สีเขียว
+            color: '#4630D9', // สีม่วงตามโทนที่กำหนด
             fontWeight: '700'
           }}>
             LINE File Bot
@@ -150,7 +150,7 @@ export default function Home() {
           <p style={{
             fontSize: '1.25rem',
             marginBottom: '1rem',
-            color: '#555',
+            color: '#fff',
             maxWidth: '800px',
             margin: '0 auto'
           }}>
@@ -159,16 +159,16 @@ export default function Home() {
         </div>
         <div style={{
           padding: '1.5rem',
-          border: '1px solid #e1e4e8',
+          border: '1px solid #150259',
           borderRadius: '10px',
-          backgroundColor: 'white',
+          backgroundColor: '#0A0140',
           marginBottom: '2rem',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
         }}>
           <h2 style={{
             fontSize: '1.5rem',
             marginBottom: '1rem',
-            color: '#333',
+            color: '#fff',
             fontWeight: '600'
           }}>สถานะระบบ</h2>
           <div style={{
@@ -179,11 +179,11 @@ export default function Home() {
             gap: '1rem'
           }}>
             <div style={{ textAlign: 'left' }}>
-              <p>
-                Webhook URL: <code style={{ backgroundColor: '#f1f1f1', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>/api/callback</code>
+              <p style={{ color: '#fff' }}>
+                Webhook URL: <code style={{ backgroundColor: '#150259', padding: '0.2rem 0.4rem', borderRadius: '4px', color: '#fff' }}>/api/callback</code>
               </p>
-              <p style={{ marginTop: '0.5rem', color: '#00B900', fontWeight: '500' }}>
-                <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#00B900', marginRight: '8px' }}></span>
+              <p style={{ marginTop: '0.5rem', color: '#4630D9', fontWeight: '500' }}>
+                <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#4630D9', marginRight: '8px' }}></span>
                 บอทพร้อมรับข้อความแล้ว
               </p>
             </div>
@@ -192,7 +192,7 @@ export default function Home() {
                 onClick={() => fetchFiles()}
                 style={{
                   padding: '0.5rem 1rem',
-                  backgroundColor: '#00B900',
+                  backgroundColor: '#4630D9',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
@@ -211,14 +211,14 @@ export default function Home() {
 
         <div style={{
           padding: '1.5rem',
-          border: '1px solid #e1e4e8',
+          border: '1px solid #150259',
           borderRadius: '10px',
-          backgroundColor: 'white',
+          backgroundColor: '#0A0140',
           marginBottom: '2rem',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.5rem', margin: 0, color: '#333', fontWeight: '600' }}>รายการไฟล์ที่อัพโหลด</h2>
+            <h2 style={{ fontSize: '1.5rem', margin: 0, color: '#fff', fontWeight: '600' }}>รายการไฟล์ที่อัพโหลด</h2>
           </div>
 
           {/* ช่องค้นหา */}
@@ -241,12 +241,14 @@ export default function Home() {
                 style={{
                   width: '100%',
                   padding: '10px 15px',
-                  border: '1px solid #ddd',
+                  border: '1px solid #150259',
                   borderRadius: '4px',
                   fontSize: '1rem',
                   outline: 'none',
                   transition: 'border-color 0.2s',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  backgroundColor: '#020126',
+                  color: '#fff'
                 }}
               />
               {searchTerm && (
@@ -261,7 +263,7 @@ export default function Home() {
                     border: 'none',
                     cursor: 'pointer',
                     fontSize: '1rem',
-                    color: '#999'
+                    color: '#4630D9'
                   }}
                 >
                   ✕
@@ -273,9 +275,10 @@ export default function Home() {
               onChange={(e) => setSearchCategory(e.target.value)}
               style={{
                 padding: '10px 15px',
-                border: '1px solid #ddd',
+                border: '1px solid #150259',
                 borderRadius: '4px',
-                backgroundColor: 'white',
+                backgroundColor: '#020126',
+                color: '#fff',
                 fontSize: '1rem',
                 outline: 'none'
               }}
@@ -292,7 +295,7 @@ export default function Home() {
             <div style={{
               padding: '20px',
               textAlign: 'center',
-              backgroundColor: '#f8f9fa',
+              backgroundColor: '#150259',
               borderRadius: '8px',
               margin: '20px 0'
             }}>
@@ -306,7 +309,7 @@ export default function Home() {
                 animation: 'spin 1s linear infinite',
                 marginBottom: '10px'
               }} />
-              <p style={{ color: '#555', marginTop: '10px' }}>กำลังโหลดข้อมูล...</p>
+              <p style={{ color: '#fff', marginTop: '10px' }}>กำลังโหลดข้อมูล...</p>
               <style jsx>{`
                 @keyframes spin {
                   to { transform: rotate(360deg); }
@@ -359,16 +362,16 @@ export default function Home() {
             <div style={{
               padding: '40px 20px',
               textAlign: 'center',
-              backgroundColor: '#f8f9fa',
+              backgroundColor: '#150259',
               borderRadius: '8px',
               margin: '20px 0',
-              border: '1px dashed #ddd'
+              border: '1px dashed #4630D9'
             }}>
-              <div style={{ fontSize: '48px', marginBottom: '15px', color: '#ccc' }}>
+              <div style={{ fontSize: '48px', marginBottom: '15px', color: '#4630D9' }}>
                 📁
               </div>
-              <p style={{ fontSize: '1.1rem', color: '#666', margin: 0 }}>ไม่พบไฟล์ในโฟลเดอร์</p>
-              <p style={{ fontSize: '0.9rem', color: '#999', marginTop: '10px' }}>
+              <p style={{ fontSize: '1.1rem', color: '#fff', margin: 0 }}>ไม่พบไฟล์ในโฟลเดอร์</p>
+              <p style={{ fontSize: '0.9rem', color: '#4630D9', marginTop: '10px' }}>
                 ส่งไฟล์ผ่าน LINE เพื่ออัพโหลดไปยัง Google Drive
               </p>
             </div>
@@ -379,26 +382,26 @@ export default function Home() {
               <div style={{
                 maxHeight: '500px',
                 overflowY: 'auto',
-                border: '1px solid #e1e4e8',
+                border: '1px solid #150259',
                 borderRadius: '8px',
-                backgroundColor: 'white'
+                backgroundColor: '#0A0140'
               }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 1 }}>
-                    <tr style={{ borderBottom: '2px solid #e1e4e8' }}>
-                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#444', fontWeight: '600' }}>ชื่อไฟล์</th>
-                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#444', fontWeight: '600' }}>ประเภท</th>
-                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#444', fontWeight: '600' }}>ขนาด</th>
-                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#444', fontWeight: '600' }}>วันที่อัพโหลด</th>
-                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#444', fontWeight: '600' }}>ลิงก์</th>
+                  <thead style={{ position: 'sticky', top: 0, backgroundColor: '#150259', zIndex: 1 }}>
+                    <tr style={{ borderBottom: '2px solid #4630D9' }}>
+                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#fff', fontWeight: '600' }}>ชื่อไฟล์</th>
+                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#fff', fontWeight: '600' }}>ประเภท</th>
+                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#fff', fontWeight: '600' }}>ขนาด</th>
+                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#fff', fontWeight: '600' }}>วันที่อัพโหลด</th>
+                      <th style={{ padding: '14px 12px', textAlign: 'left', color: '#fff', fontWeight: '600' }}>ลิงก์</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredFiles.length > 0 ? (
                       filteredFiles.map((file) => (
-                        <tr key={file.id} style={{ borderBottom: '1px solid #e1e4e8', transition: 'background-color 0.2s' }}>
-                          <td style={{ padding: '12px', color: '#333' }}>{file.name}</td>
-                          <td style={{ padding: '12px', color: '#555' }}>
+                        <tr key={file.id} style={{ borderBottom: '1px solid #150259', transition: 'background-color 0.2s' }}>
+                          <td style={{ padding: '12px', color: '#fff' }}>{file.name}</td>
+                          <td style={{ padding: '12px', color: '#fff' }}>
                             <span style={{
                               display: 'inline-block',
                               padding: '4px 8px',
@@ -410,8 +413,8 @@ export default function Home() {
                               {file.mimeType.split('/').pop()}
                             </span>
                           </td>
-                          <td style={{ padding: '12px', color: '#555' }}>{file.size}</td>
-                          <td style={{ padding: '12px', color: '#555' }}>{file.createdTime}</td>
+                          <td style={{ padding: '12px', color: '#fff' }}>{file.size}</td>
+                          <td style={{ padding: '12px', color: '#fff' }}>{file.createdTime}</td>
                           <td style={{ padding: '12px' }}>
                             {file.webViewLink ? (
                               <a
@@ -419,11 +422,11 @@ export default function Home() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{
-                                  color: '#00B900',
+                                  color: '#4630D9',
                                   textDecoration: 'none',
                                   padding: '6px 12px',
-                                  backgroundColor: '#f0fff0',
-                                  border: '1px solid #00B900',
+                                  backgroundColor: '#150259',
+                                  border: '1px solid #4630D9',
                                   borderRadius: '4px',
                                   display: 'inline-block',
                                   fontSize: '0.9rem',
@@ -431,25 +434,25 @@ export default function Home() {
                                   transition: 'all 0.2s'
                                 }}
                                 onMouseOver={(e) => {
-                                  e.target.style.backgroundColor = '#00B900';
+                                  e.target.style.backgroundColor = '#4630D9';
                                   e.target.style.color = 'white';
                                 }}
                                 onMouseOut={(e) => {
-                                  e.target.style.backgroundColor = '#f0fff0';
-                                  e.target.style.color = '#00B900';
+                                  e.target.style.backgroundColor = '#150259';
+                                  e.target.style.color = '#4630D9';
                                 }}
                               >
                                 เปิดไฟล์
                               </a>
                             ) : (
-                              <span style={{ color: '#999', fontSize: '0.9rem' }}>ไม่มีลิงก์</span>
+                              <span style={{ color: '#4630D9', fontSize: '0.9rem' }}>ไม่มีลิงก์</span>
                             )}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                        <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>
                           ไม่พบไฟล์ที่ตรงกับคำค้นหา
                         </td>
                       </tr>
@@ -460,7 +463,7 @@ export default function Home() {
               <div style={{
                 marginTop: '15px',
                 fontSize: '0.9rem',
-                color: '#666',
+                color: '#fff',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center'
@@ -477,7 +480,7 @@ export default function Home() {
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#00B900',
+                      color: '#4630D9',
                       cursor: 'pointer',
                       fontSize: '0.9rem',
                       padding: '4px 8px'
@@ -493,16 +496,16 @@ export default function Home() {
 
         <div style={{
           padding: '1.5rem',
-          border: '1px solid #e1e4e8',
+          border: '1px solid #150259',
           borderRadius: '10px',
-          backgroundColor: 'white',
+          backgroundColor: '#0A0140',
           marginBottom: '2rem',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
         }}>
           <h2 style={{
             fontSize: '1.5rem',
             marginBottom: '1.5rem',
-            color: '#333',
+            color: '#fff',
             fontWeight: '600'
           }}>เครื่องมือทดสอบระบบ</h2>
 
@@ -517,7 +520,7 @@ export default function Home() {
               onClick={() => runTest('test')}
               style={{
                 padding: '0.75rem 1.25rem',
-                backgroundColor: '#4CAF50',
+                backgroundColor: '#150259',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -529,8 +532,8 @@ export default function Home() {
                 alignItems: 'center',
                 gap: '8px'
               }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#43A047'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#4CAF50'}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#4630D9'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#150259'}
             >
               <span>⚙️</span> ทดสอบ API
             </button>
@@ -539,7 +542,7 @@ export default function Home() {
               onClick={() => runTest('line-test')}
               style={{
                 padding: '0.75rem 1.25rem',
-                backgroundColor: '#00B900',
+                backgroundColor: '#150259',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -551,8 +554,8 @@ export default function Home() {
                 alignItems: 'center',
                 gap: '8px'
               }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#00A000'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#00B900'}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#4630D9'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#150259'}
             >
               <span>💬</span> ทดสอบ LINE API
             </button>
@@ -561,7 +564,7 @@ export default function Home() {
               onClick={() => runTest('drive-test')}
               style={{
                 padding: '0.75rem 1.25rem',
-                backgroundColor: '#4285F4',
+                backgroundColor: '#150259',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -573,8 +576,8 @@ export default function Home() {
                 alignItems: 'center',
                 gap: '8px'
               }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#3B78E7'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#4285F4'}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#4630D9'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#150259'}
             >
               <span>📂</span> ทดสอบ Google Drive API
             </button>
@@ -584,7 +587,7 @@ export default function Home() {
             <div style={{
               padding: '20px',
               textAlign: 'center',
-              backgroundColor: '#f8f9fa',
+              backgroundColor: '#150259',
               borderRadius: '8px',
               margin: '20px 0'
             }}>
@@ -598,7 +601,7 @@ export default function Home() {
                 animation: 'spin 1s linear infinite',
                 marginBottom: '10px'
               }} />
-              <p style={{ color: '#555', marginTop: '10px' }}>กำลังทดสอบ...</p>
+              <p style={{ color: '#fff', marginTop: '10px' }}>กำลังทดสอบ...</p>
             </div>
           )}
 

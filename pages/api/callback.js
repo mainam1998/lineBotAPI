@@ -1,19 +1,7 @@
-import { initLineClient, verifySignature, replyMessage } from '../../utils/lineClient';
+import { initLineClient, verifySignature } from '../../utils/lineClient';
 import { initGoogleDrive, streamToBuffer, resumableUpload, listFiles } from '../../utils/googleDrive';
 
-// Helper function to get message type in Thai
-function getMessageTypeInThai(messageType) {
-  switch (messageType) {
-    case 'image':
-      return 'รูปภาพ';
-    case 'video':
-      return 'วิดีโอ';
-    case 'audio':
-      return 'ไฟล์เสียง';
-    default:
-      return 'ไฟล์';
-  }
-}
+// ตัดฟังก์ชันที่ไม่ได้ใช้แล้วออก
 
 export default async function handler(req, res) {
   // Log request method and path
@@ -240,16 +228,8 @@ export default async function handler(req, res) {
           console.error('[ERROR] Failed to convert stream to buffer:', bufferError);
           throw new Error(`Failed to process file: ${bufferError.message}`);
         }
-        // Send initial response to user
-        console.log('[DEBUG] Sending initial response to user');
-        // Get message type in Thai
-        const messageTypeInThai = getMessageTypeInThai(event.message.type);
-
-        await replyMessage(lineClient, event.replyToken, {
-          type: 'text',
-          text: `กำลังอัปโหลด${messageTypeInThai} "${fileName}" (${(buffer.length / (1024 * 1024)).toFixed(2)} MB)...`,
-        });
-        console.log('[DEBUG] Initial response sent');
+        // ตัดการส่งข้อความตอบกลับเริ่มต้นออก
+        console.log('[DEBUG] Skipping initial response to user');
 
         // Upload file to Google Drive using resumable upload for better handling of large files
         console.log('[DEBUG] Starting file upload to Google Drive');
@@ -266,9 +246,6 @@ export default async function handler(req, res) {
           console.error('[ERROR] Failed to upload file to Google Drive:', uploadError);
           throw new Error(`Failed to upload file: ${uploadError.message}`);
         }
-
-        // Send success message to user
-        // Get message type in Thai (reuse the same value from before)
 
         // สร้างข้อความตอบกลับหลังอัพโหลดสำเร็จ
         const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';

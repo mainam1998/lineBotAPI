@@ -1,4 +1,4 @@
-import { initLineClient, verifySignature, replyMessage } from '../../utils/lineClient';
+import { initLineClient, verifySignature } from '../../utils/lineClient';
 import { initGoogleDrive, streamToBuffer, resumableUpload } from '../../utils/googleDrive';
 
 export default async function handler(req, res) {
@@ -46,12 +46,6 @@ export default async function handler(req, res) {
 
       // Convert stream to buffer for resumable upload
       const buffer = await streamToBuffer(stream);
-
-      // Send initial response to user
-      await replyMessage(lineClient, event.replyToken, {
-        type: 'text',
-        text: `กำลังอัปโหลดไฟล์ "${event.message.fileName}" (${(buffer.length / (1024 * 1024)).toFixed(2)} MB)...`,
-      });
 
       // Upload file to Google Drive using resumable upload
       const uploadResult = await resumableUpload(
