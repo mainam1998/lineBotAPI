@@ -1,6 +1,7 @@
 import { initLineClient, verifySignature } from '../../utils/lineClient';
 import { initGoogleDrive, streamToBuffer, modernUpload, listFiles } from '../../utils/googleDriveModern';
 import uploadQueue from '../../utils/uploadQueue';
+import batchProcessor from '../../utils/batchProcessor';
 
 // ตัดฟังก์ชันที่ไม่ได้ใช้แล้วออก
 
@@ -242,21 +243,34 @@ export default async function handler(req, res) {
           const userId = event.source.userId;
           const userQueueStatus = uploadQueue.getUserQueueStatus(userId);
           const globalStats = uploadQueue.getQueueStats();
+          const batchStatus = batchProcessor.getBatchStatus(userId);
 
           const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
-          let queueMessage = `สถานะคิวอัพโหลด:
 
-ของคุณ:
+          let queueMessage = `📊 สถานะระบบ:
+
+🔄 คิวอัพโหลด:
 - รอดำเนินการ: ${userQueueStatus.pending} ไฟล์
 - กำลังอัพโหลด: ${userQueueStatus.processing} ไฟล์
 - สำเร็จแล้ว: ${userQueueStatus.completed} ไฟล์
 - ล้มเหลว: ${userQueueStatus.failed} ไฟล์
 
-ระบบทั้งหมด:
-- คิวทั้งหมด: ${globalStats.total} ไฟล์
-- กำลังประมวลผล: ${globalStats.isProcessing ? 'ใช่' : 'ไม่'}
+📦 Batch Processing:`;
 
-เว็บไซต์: ${webAppUrl}`;
+          if (batchStatus) {
+            queueMessage += `
+- สถานะ: ${batchStatus.status === 'collecting' ? 'รอไฟล์เพิ่มเติม' :
+                     batchStatus.status === 'processing' ? 'กำลังประมวลผล' : 'เสร็จสิ้น'}
+- ไฟล์ทั้งหมด: ${batchStatus.totalFiles} ไฟล์
+- ประมวลผลแล้ว: ${batchStatus.processedFiles} ไฟล์`;
+          } else {
+            queueMessage += `
+- ไม่มี batch ที่กำลังประมวลผล`;
+          }
+
+          queueMessage += `
+
+🌐 เว็บไซต์: ${webAppUrl}`;
 
           // Only reply to first event, push to others
           if (i === 0) {
@@ -296,32 +310,20 @@ export default async function handler(req, res) {
 
     } // End of text events loop
 
-    // Handle file messages with simplified processing
+    // Handle file messages with batch processing
     if (fileEvents.length > 0) {
-      console.log(`[SIMPLE] Processing ${fileEvents.length} file events`);
+      console.log(`[BATCH] Received ${fileEvents.length} file events`);
 
       const userId = fileEvents[0].source.userId;
       const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
 
-      // Send simple summary response
-      const summaryMessage = `📁 รับไฟล์ ${fileEvents.length} ไฟล์แล้ว
-
-⏳ ระบบจะประมวลผลทีละไฟล์
-📊 ระบบจะแจ้งผลลัพธ์เมื่อเสร็จ
-
-🌐 เว็บไซต์: ${webAppUrl}`;
-
-      await lineClient.replyMessage(fileEvents[0].replyToken, {
-        type: 'text',
-        text: summaryMessage,
-      });
-
-      // Process each file immediately and simply
+      // Add files to batch processor
+      let totalFilesInBatch = 0;
       for (let i = 0; i < fileEvents.length; i++) {
         const event = fileEvents[i];
         const messageId = event.message.id;
 
-        // Generate simple filename
+        // Generate filename
         let fileName;
         switch (event.message.type) {
           case 'file':
@@ -340,130 +342,37 @@ export default async function handler(req, res) {
             fileName = `file_${messageId}`;
         }
 
-        console.log(`[SIMPLE] Processing file ${i + 1}/${fileEvents.length}: ${fileName}`);
+        // Add to batch processor
+        totalFilesInBatch = batchProcessor.addFileToBatch(userId, {
+          fileName: fileName,
+          messageId: messageId,
+          messageType: event.message.type,
+          replyToken: i === 0 ? event.replyToken : null // Only first file gets reply token
+        });
 
-        // Process file in background with delay to avoid overwhelming
-        const processingDelay = i * 2000; // 2 seconds between each file
-        setTimeout(async () => {
-          try {
-            console.log(`[SIMPLE] Starting background processing for: ${fileName}`);
-
-            // Download file from LINE
-            let stream = null;
-            let retryCount = 0;
-            const maxRetries = 2;
-
-            // Simple timeout - 30 seconds for all files
-            const downloadTimeout = 30000;
-
-            while (retryCount < maxRetries && !stream) {
-              try {
-                console.log(`[SIMPLE] Downloading from LINE (attempt ${retryCount + 1}/${maxRetries})`);
-
-                const { initLineClient } = require('../../utils/lineClient');
-                const freshLineClient = initLineClient();
-
-                const downloadPromise = freshLineClient.getMessageContent(messageId);
-                const timeoutPromise = new Promise((_, reject) => {
-                  setTimeout(() => reject(new Error(`Download timeout after 30 seconds`)), downloadTimeout);
-                });
-
-                stream = await Promise.race([downloadPromise, timeoutPromise]);
-
-                if (!stream) {
-                  throw new Error('Received empty stream from LINE');
-                }
-
-                console.log(`[SIMPLE] Download successful for: ${fileName}`);
-                break;
-
-              } catch (downloadError) {
-                retryCount++;
-                console.error(`[SIMPLE] Download attempt ${retryCount} failed for ${fileName}:`, downloadError.message);
-
-                if (retryCount < maxRetries) {
-                  const retryDelay = 3000; // 3 seconds retry delay
-                  console.log(`[SIMPLE] Retrying in ${retryDelay}ms...`);
-                  await new Promise(resolve => setTimeout(resolve, retryDelay));
-                } else {
-                  throw new Error(`Failed to download after ${maxRetries} attempts: ${downloadError.message}`);
-                }
-              }
-            }
-
-            // Convert stream to buffer with longer timeout
-            console.log(`[SIMPLE] Converting stream to buffer for: ${fileName}`);
-            const buffer = await streamToBuffer(stream, 60000); // Increased to 60 seconds
-            console.log(`[SIMPLE] Buffer ready, size: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB`);
-
-            // Add to upload queue with simple callback
-            console.log(`[SIMPLE] Adding to upload queue: ${fileName}`);
-            uploadQueue.addToQueue(userId, {
-              fileName: fileName,
-              buffer: buffer,
-              messageId: messageId,
-              messageType: event.message.type,
-              onComplete: async (success, result, error) => {
-                try {
-                  if (success) {
-                    const successMessage = `✅ อัพโหลดสำเร็จ
-
-📁 ไฟล์: ${fileName}
-🔗 ลิงก์: ${result.webViewLink || 'ไม่สามารถสร้างลิงก์ได้'}
-
-🌐 เว็บไซต์: ${webAppUrl}`;
-
-                    await lineClient.pushMessage(userId, {
-                      type: 'text',
-                      text: successMessage,
-                    });
-                  } else {
-                    const errorMessage = `❌ อัพโหลดล้มเหลว
-
-📁 ไฟล์: ${fileName}
-🔍 สาเหตุ: ${error}
-
-💡 ลองส่งไฟล์ใหม่อีกครั้ง
-
-🌐 เว็บไซต์: ${webAppUrl}`;
-
-                    await lineClient.pushMessage(userId, {
-                      type: 'text',
-                      text: errorMessage,
-                    });
-                  }
-                } catch (notifyError) {
-                  console.error(`[SIMPLE] Failed to notify user: ${notifyError.message}`);
-                }
-              }
-            });
-
-            console.log(`[SIMPLE] File ${fileName} added to queue successfully`);
-
-          } catch (processingError) {
-            console.error(`[SIMPLE] Processing failed for ${fileName}:`, processingError.message);
-
-            // Send error notification
-            try {
-              const errorMessage = `❌ ประมวลผลล้มเหลว
-
-📁 ไฟล์: ${fileName}
-🔍 สาเหตุ: ${processingError.message}
-
-💡 ลองส่งไฟล์ใหม่อีกครั้ง
-
-🌐 เว็บไซต์: ${webAppUrl}`;
-
-              await lineClient.pushMessage(userId, {
-                type: 'text',
-                text: errorMessage,
-              });
-            } catch (notifyError) {
-              console.error(`[SIMPLE] Failed to send error notification: ${notifyError.message}`);
-            }
-          }
-        }, processingDelay);
+        console.log(`[BATCH] Added file ${i + 1}/${fileEvents.length}: ${fileName}`);
       }
+
+      // Send immediate response
+      const batchMessage = `📁 รับไฟล์ ${fileEvents.length} ไฟล์แล้ว
+
+📊 สถานะ:
+• ไฟล์ในชุดนี้: ${fileEvents.length} ไฟล์
+• รวมไฟล์ที่รอประมวลผล: ${totalFilesInBatch} ไฟล์
+
+⏳ ระบบจะรอไฟล์เพิ่มเติม 30 วินาที
+📤 หากไม่มีไฟล์เพิ่ม จะเริ่มอัพโหลดทีละไฟล์
+
+💡 คุณสามารถส่งไฟล์เพิ่มเติมได้ในระหว่างนี้
+
+🌐 เว็บไซต์: ${webAppUrl}`;
+
+      await lineClient.replyMessage(fileEvents[0].replyToken, {
+        type: 'text',
+        text: batchMessage,
+      });
+
+      console.log(`[BATCH] Batch processing initiated for user ${userId} with ${totalFilesInBatch} total files`);
     } // End of file events handling
 
     return res.status(200).end();

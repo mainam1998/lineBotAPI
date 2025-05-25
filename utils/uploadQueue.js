@@ -112,12 +112,15 @@ class UploadQueue {
 
         console.log(`[QUEUE] Successfully uploaded: ${item.fileName}`);
 
-        // Notify user of success
-        await this.notifyUser(item.userId, 'success', item);
+        // Don't notify user here - let onComplete callback handle it
+        // await this.notifyUser(item.userId, 'success', item);
 
         // Call onComplete callback if provided
         if (item.onComplete) {
           await item.onComplete(true, result, null);
+        } else {
+          // Only notify if no callback provided (fallback)
+          await this.notifyUser(item.userId, 'success', item);
         }
 
       } catch (error) {
@@ -131,12 +134,15 @@ class UploadQueue {
           item.buffer = null;
           console.log(`[QUEUE] Max attempts reached for ${item.fileName}, marking as failed`);
 
-          // Notify user of failure
-          await this.notifyUser(item.userId, 'failed', item);
+          // Don't notify user here - let onComplete callback handle it
+          // await this.notifyUser(item.userId, 'failed', item);
 
           // Call onComplete callback if provided
           if (item.onComplete) {
             await item.onComplete(false, null, item.error);
+          } else {
+            // Only notify if no callback provided (fallback)
+            await this.notifyUser(item.userId, 'failed', item);
           }
         } else {
           item.status = 'pending';
