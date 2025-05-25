@@ -28,7 +28,7 @@ class BatchProcessor {
     }
 
     const batch = this.batches.get(userId);
-    
+
     // เพิ่มไฟล์เข้า batch
     batch.files.push({
       ...fileData,
@@ -76,7 +76,7 @@ class BatchProcessor {
     }
 
     console.log(`[BATCH] Starting batch processing for user ${userId} with ${batch.totalFiles} files`);
-    
+
     batch.status = 'processing';
     batch.processedFiles = 0;
 
@@ -91,20 +91,20 @@ class BatchProcessor {
       try {
         // อัพเดทสถานะไฟล์
         file.status = 'downloading';
-        
+
         // แจ้งความคืบหน้า
         await this.notifyProgress(userId, batch, i + 1);
 
         // ดาวน์โหลดไฟล์จาก LINE
         const stream = await this.downloadFromLine(file.messageId);
-        
+
         // แปลง stream เป็น buffer
         file.status = 'uploading';
         const buffer = await this.streamToBuffer(stream);
-        
+
         // อัพโหลดไป Google Drive
         const result = await this.uploadToGoogleDrive(file.fileName, buffer);
-        
+
         // อัพเดทสถานะ
         file.status = 'completed';
         file.result = result;
@@ -117,7 +117,7 @@ class BatchProcessor {
 
       } catch (error) {
         console.error(`[BATCH] File ${i + 1}/${batch.totalFiles} failed: ${file.fileName}`, error);
-        
+
         file.status = 'failed';
         file.error = error.message;
         batch.processedFiles++;
@@ -146,22 +146,26 @@ class BatchProcessor {
   }
 
   /**
-   * ดาวน์โหลดไฟล์จาก LINE
+   * ดาวน์โหลดไฟล์จาก LINE with enhanced error handling
    */
   async downloadFromLine(messageId) {
-    const { initLineClient } = require('./lineClient');
-    const lineClient = initLineClient();
-
     let retryCount = 0;
-    const maxRetries = 2;
+    const maxRetries = 3; // Increased retries
 
     while (retryCount < maxRetries) {
       try {
         console.log(`[BATCH] Downloading from LINE (attempt ${retryCount + 1}/${maxRetries})`);
 
+        // Create fresh LINE client for each attempt
+        const { initLineClient } = require('./lineClient');
+        const lineClient = initLineClient();
+
+        // Progressive timeout (longer for each retry)
+        const timeout = 30000 + (retryCount * 15000); // 30s, 45s, 60s
+
         const downloadPromise = lineClient.getMessageContent(messageId);
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Download timeout after 30 seconds')), 30000);
+          setTimeout(() => reject(new Error(`Download timeout after ${timeout/1000} seconds`)), timeout);
         });
 
         const stream = await Promise.race([downloadPromise, timeoutPromise]);
@@ -170,15 +174,35 @@ class BatchProcessor {
           throw new Error('Received empty stream from LINE');
         }
 
+        console.log(`[BATCH] Download successful on attempt ${retryCount + 1}`);
         return stream;
 
       } catch (error) {
         retryCount++;
+        console.error(`[BATCH] Download attempt ${retryCount} failed:`, error.message);
+
         if (retryCount < maxRetries) {
-          console.log(`[BATCH] Download failed, retrying in 3 seconds...`);
-          await this.delay(3000);
+          // Progressive backoff with jitter
+          const baseDelay = retryCount * 5000; // 5s, 10s, 15s
+          const jitter = Math.random() * 2000; // 0-2s random
+          const delay = baseDelay + jitter;
+
+          console.log(`[BATCH] Retrying download in ${Math.round(delay)}ms...`);
+          await this.delay(delay);
         } else {
-          throw error;
+          // Classify error type for better user message
+          let errorType = 'ไม่ทราบสาเหตุ';
+          if (error.message.includes('TLS') || error.message.includes('socket')) {
+            errorType = 'ปัญหาการเชื่อมต่อเครือข่าย (TLS/Socket)';
+          } else if (error.message.includes('timeout')) {
+            errorType = 'หมดเวลาในการดาวน์โหลด';
+          } else if (error.message.includes('ECONNRESET')) {
+            errorType = 'การเชื่อมต่อถูกรีเซ็ต';
+          } else if (error.message.includes('ENOTFOUND')) {
+            errorType = 'ไม่พบเซิร์ฟเวอร์';
+          }
+
+          throw new Error(`${errorType}: ${error.message}`);
         }
       }
     }
@@ -193,11 +217,45 @@ class BatchProcessor {
   }
 
   /**
-   * อัพโหลดไป Google Drive
+   * อัพโหลดไป Google Drive with fallback
    */
   async uploadToGoogleDrive(fileName, buffer) {
+    // Try direct upload first (faster)
+    try {
+      console.log(`[BATCH] Attempting direct upload for: ${fileName}`);
+      return await this.directUploadToGoogleDrive(fileName, buffer);
+    } catch (directError) {
+      console.warn(`[BATCH] Direct upload failed for ${fileName}, using queue: ${directError.message}`);
+
+      // Fallback to upload queue
+      return await this.queueUploadToGoogleDrive(fileName, buffer);
+    }
+  }
+
+  /**
+   * Direct upload to Google Drive
+   */
+  async directUploadToGoogleDrive(fileName, buffer) {
+    const { initGoogleDrive, modernUpload } = require('./googleDriveModern');
+
+    const drive = initGoogleDrive();
+    const result = await modernUpload(
+      drive,
+      fileName,
+      buffer,
+      process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
+    );
+
+    console.log(`[BATCH] Direct upload successful for: ${fileName}`);
+    return result;
+  }
+
+  /**
+   * Queue upload to Google Drive
+   */
+  async queueUploadToGoogleDrive(fileName, buffer) {
     const uploadQueue = require('./uploadQueue');
-    
+
     return new Promise((resolve, reject) => {
       const queueId = uploadQueue.addToQueue('batch_user', {
         fileName: fileName,
@@ -206,13 +264,15 @@ class BatchProcessor {
         messageType: 'file',
         onComplete: async (success, result, error) => {
           if (success) {
+            console.log(`[BATCH] Queue upload successful for: ${fileName}`);
             resolve(result);
           } else {
+            console.error(`[BATCH] Queue upload failed for: ${fileName}`);
             reject(new Error(error));
           }
         }
       });
-      
+
       console.log(`[BATCH] Added ${fileName} to upload queue with ID: ${queueId}`);
     });
   }
@@ -225,7 +285,7 @@ class BatchProcessor {
       const { initLineClient } = require('./lineClient');
       const lineClient = initLineClient();
 
-      const fileList = batch.files.map((file, index) => 
+      const fileList = batch.files.map((file, index) =>
         `${index + 1}. ${file.fileName}`
       ).join('\n');
 

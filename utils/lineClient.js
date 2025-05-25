@@ -8,22 +8,31 @@ export const initLineClient = () => {
   const lineConfig = {
     channelSecret: process.env.LINE_CHANNEL_SECRET,
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-    // Add HTTP client configuration for better connection handling
+    // Enhanced HTTP client configuration for TLS stability
     httpConfig: {
-      timeout: 90000, // 90 seconds timeout (increased)
+      timeout: 120000, // 2 minutes timeout (increased for TLS issues)
       keepAlive: true, // Enable keep-alive
-      maxSockets: 5, // Reduce concurrent connections to avoid overwhelming
-      maxFreeSockets: 2, // Keep fewer connections open
+      maxSockets: 3, // Further reduce concurrent connections
+      maxFreeSockets: 1, // Keep minimal connections open
+      // TLS configuration
+      secureProtocol: 'TLSv1_2_method', // Force TLS 1.2
+      rejectUnauthorized: true, // Verify certificates
+      // Connection configuration
+      family: 4, // Force IPv4 to avoid IPv6 issues
       // Add retry configuration
       retry: {
-        retries: 2, // Reduce retries for faster processing
-        retryDelay: (retryCount) => Math.min(2000 * Math.pow(2, retryCount), 8000), // Exponential backoff
+        retries: 3, // Increase retries for TLS issues
+        retryDelay: (retryCount) => Math.min(3000 * Math.pow(2, retryCount), 15000), // Longer backoff
         retryCondition: (error) => {
-          // Retry on network errors and 5xx responses
+          // Retry on network errors, TLS errors, and 5xx responses
           return error.code === 'ECONNRESET' ||
                  error.code === 'ENOTFOUND' ||
                  error.code === 'ECONNREFUSED' ||
                  error.code === 'ETIMEDOUT' ||
+                 error.code === 'EPROTO' ||
+                 error.code === 'CERT_HAS_EXPIRED' ||
+                 error.message.includes('TLS') ||
+                 error.message.includes('socket') ||
                  (error.response && error.response.status >= 500);
         }
       }
