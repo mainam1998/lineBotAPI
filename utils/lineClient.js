@@ -10,14 +10,14 @@ export const initLineClient = () => {
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
     // Add HTTP client configuration for better connection handling
     httpConfig: {
-      timeout: 60000, // 60 seconds timeout
+      timeout: 90000, // 90 seconds timeout (increased)
       keepAlive: true, // Enable keep-alive
-      maxSockets: 10, // Limit concurrent connections
-      maxFreeSockets: 5, // Keep some connections open
+      maxSockets: 5, // Reduce concurrent connections to avoid overwhelming
+      maxFreeSockets: 2, // Keep fewer connections open
       // Add retry configuration
       retry: {
-        retries: 3,
-        retryDelay: (retryCount) => Math.min(1000 * Math.pow(2, retryCount), 10000), // Exponential backoff
+        retries: 2, // Reduce retries for faster processing
+        retryDelay: (retryCount) => Math.min(2000 * Math.pow(2, retryCount), 8000), // Exponential backoff
         retryCondition: (error) => {
           // Retry on network errors and 5xx responses
           return error.code === 'ECONNRESET' ||

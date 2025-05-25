@@ -320,7 +320,7 @@ export default async function handler(req, res) {
         text: summaryMessage,
       });
 
-      // Process each file in background
+      // Process each file in background with staggered timing to avoid resource contention
       for (let i = 0; i < fileEvents.length; i++) {
         const event = fileEvents[i];
         const userId = event.source.userId;
@@ -352,8 +352,9 @@ export default async function handler(req, res) {
 
         console.log(`[DEBUG] File Event ${i + 1}: Handling ${event.message.type} with filename: ${fileName}`);
 
-        // Process file in background - use immediate processing for better performance
-        setImmediate(async () => {
+        // Process file in background with staggered delay to avoid overwhelming the system
+        const processingDelay = i * 2000; // 2 seconds between each file
+        setTimeout(async () => {
           try {
             console.log(`[BACKGROUND] Starting background file processing for: ${fileName} (file ${i + 1}/${events.length})`);
 
@@ -362,13 +363,13 @@ export default async function handler(req, res) {
             let retryCount = 0;
             const maxRetries = 2; // Reduce retries for faster processing
 
-            // Smart timeout based on file type
+            // Smart timeout based on file type - increased for better reliability
             const getSmartTimeout = (messageType) => {
               switch (messageType) {
-                case 'image': return 15000; // 15s for images
-                case 'video': return 30000; // 30s for videos
-                case 'audio': return 25000; // 25s for audio
-                default: return 20000; // 20s for other files
+                case 'image': return 25000; // 25s for images (increased from 15s)
+                case 'video': return 45000; // 45s for videos (increased from 30s)
+                case 'audio': return 35000; // 35s for audio (increased from 25s)
+                default: return 30000; // 30s for other files (increased from 20s)
               }
             };
 
@@ -461,7 +462,7 @@ export default async function handler(req, res) {
               console.error('[BACKGROUND] Failed to notify user about background error:', notifyError);
             }
           }
-        });
+        }, processingDelay);
       } // End of file processing loop
     } // End of file events handling
 
