@@ -282,9 +282,18 @@ export default async function handler(req, res) {
         // Get current queue status for user
         const userQueueStatus = uploadQueue.getUserQueueStatus(userId);
 
-        // Send immediate confirmation with queue status
+        // Send immediate confirmation with queue status (only for first file to avoid multiple replies)
         const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
-        const queueMessage = `ไฟล์ถูกเพิ่มในคิวแล้ว: ${fileName}
+
+        // Check if this is the first file from this user in recent time (within 5 seconds)
+        const recentFiles = uploadQueue.queue.filter(item =>
+          item.userId === userId &&
+          (Date.now() - item.addedAt.getTime()) < 5000
+        );
+
+        if (recentFiles.length === 1) {
+          // This is the first file, send reply
+          const queueMessage = `ไฟล์ถูกเพิ่มในคิวแล้ว: ${fileName}
 
 สถานะคิวของคุณ:
 - รอดำเนินการ: ${userQueueStatus.pending} ไฟล์
@@ -292,10 +301,23 @@ export default async function handler(req, res) {
 
 เว็บไซต์: ${webAppUrl}`;
 
-        await lineClient.replyMessage(event.replyToken, {
-          type: 'text',
-          text: queueMessage,
-        });
+          await lineClient.replyMessage(event.replyToken, {
+            type: 'text',
+            text: queueMessage,
+          });
+        } else {
+          // This is additional file, send push message instead
+          const queueMessage = `ไฟล์เพิ่มเติมถูกเพิ่มในคิว: ${fileName}
+
+รวมไฟล์ในคิว: ${userQueueStatus.pending} ไฟล์
+
+เว็บไซต์: ${webAppUrl}`;
+
+          await lineClient.pushMessage(userId, {
+            type: 'text',
+            text: queueMessage,
+          });
+        }
 
       } catch (error) {
         console.error('[ERROR] Error handling file message:', error);

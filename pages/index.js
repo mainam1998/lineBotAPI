@@ -387,6 +387,13 @@ export default function Home() {
               >
                 <span>📋</span> ทดสอบ Queue System
               </button>
+
+              <button
+                className={styles.button}
+                onClick={() => runTest('debug-queue')}
+              >
+                <span>🔍</span> Debug Queue
+              </button>
             </div>
 
             {/* Testing Loading State */}

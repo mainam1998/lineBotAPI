@@ -19,7 +19,7 @@ class UploadQueue {
     };
 
     this.queue.push(queueItem);
-    
+
     // Track user's files
     if (!this.userQueues.has(userId)) {
       this.userQueues.set(userId, []);
@@ -41,7 +41,7 @@ class UploadQueue {
   getUserQueueStatus(userId) {
     const userFileIds = this.userQueues.get(userId) || [];
     const userFiles = this.queue.filter(item => userFileIds.includes(item.id));
-    
+
     return {
       total: userFiles.length,
       pending: userFiles.filter(item => item.status === 'pending').length,
@@ -65,43 +65,49 @@ class UploadQueue {
     }
 
     this.processing = true;
-    console.log('[QUEUE] Starting queue processing');
+    console.log(`[QUEUE] Starting queue processing. Total items: ${this.queue.length}`);
+    console.log(`[QUEUE] Queue items:`, this.queue.map(item => ({ id: item.id, fileName: item.fileName, status: item.status })));
 
     while (this.queue.length > 0) {
-      const item = this.queue.find(item => item.status === 'pending');
-      
+      const pendingItems = this.queue.filter(item => item.status === 'pending');
+      console.log(`[QUEUE] Pending items: ${pendingItems.length}`);
+
+      const item = pendingItems[0]; // Get first pending item
+
       if (!item) {
-        console.log('[QUEUE] No pending items found');
+        console.log('[QUEUE] No pending items found, breaking loop');
+        console.log(`[QUEUE] Current queue status:`, this.queue.map(item => ({ fileName: item.fileName, status: item.status })));
         break;
       }
 
       console.log(`[QUEUE] Processing file: ${item.fileName} (attempt ${item.attempts + 1}/${item.maxAttempts})`);
-      
+
       item.status = 'processing';
       item.attempts++;
 
       try {
         // Process the upload
+        console.log(`[QUEUE] Starting upload for: ${item.fileName}`);
         const result = await this.uploadFile(item);
-        
+
         item.status = 'completed';
         item.result = result;
         item.completedAt = new Date();
-        
+
         console.log(`[QUEUE] Successfully uploaded: ${item.fileName}`);
-        
+
         // Notify user of success
         await this.notifyUser(item.userId, 'success', item);
-        
+
       } catch (error) {
         console.error(`[QUEUE] Failed to upload ${item.fileName}:`, error);
-        
+
         item.error = error.message;
-        
+
         if (item.attempts >= item.maxAttempts) {
           item.status = 'failed';
           console.log(`[QUEUE] Max attempts reached for ${item.fileName}, marking as failed`);
-          
+
           // Notify user of failure
           await this.notifyUser(item.userId, 'failed', item);
         } else {
@@ -111,31 +117,51 @@ class UploadQueue {
       }
 
       // Add delay between uploads to avoid rate limiting
-      await this.delay(1000);
+      console.log('[QUEUE] Waiting 2 seconds before next upload...');
+      await this.delay(2000);
+
+      // Log current queue status
+      console.log(`[QUEUE] Current queue status after processing ${item.fileName}:`);
+      console.log(this.queue.map(item => ({ fileName: item.fileName, status: item.status, attempts: item.attempts })));
     }
 
-    // Clean up completed and failed items older than 1 hour
-    this.cleanupQueue();
-    
     this.processing = false;
     console.log('[QUEUE] Queue processing completed');
+    console.log(`[QUEUE] Final queue status:`, this.getQueueStats());
+
+    // Clean up completed and failed items older than 1 hour (only when not processing)
+    this.cleanupQueue();
   }
 
-  // Upload file function
+  // Upload file function with timeout
   async uploadFile(item) {
-    const { initGoogleDrive, resumableUpload } = require('./googleDrive');
-    
-    console.log(`[QUEUE] Uploading ${item.fileName} to Google Drive`);
-    
-    const drive = initGoogleDrive();
-    const result = await resumableUpload(
-      drive,
-      item.fileName,
-      item.buffer,
-      process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
-    );
-    
-    return result;
+    try {
+      const { initGoogleDrive, resumableUpload } = require('./googleDrive');
+
+      console.log(`[QUEUE] Uploading ${item.fileName} to Google Drive (size: ${(item.buffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+
+      const drive = initGoogleDrive();
+
+      // Add timeout for upload (5 minutes)
+      const uploadPromise = resumableUpload(
+        drive,
+        item.fileName,
+        item.buffer,
+        process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
+      );
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Upload timeout after 5 minutes')), 5 * 60 * 1000);
+      });
+
+      const result = await Promise.race([uploadPromise, timeoutPromise]);
+
+      console.log(`[QUEUE] Upload successful for ${item.fileName}:`, result);
+      return result;
+    } catch (error) {
+      console.error(`[QUEUE] Upload failed for ${item.fileName}:`, error);
+      throw error;
+    }
   }
 
   // Notify user about upload status
@@ -143,10 +169,10 @@ class UploadQueue {
     try {
       const { initLineClient } = require('./lineClient');
       const lineClient = initLineClient();
-      
+
       const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
       let message;
-      
+
       if (status === 'success') {
         message = `อัพโหลดสำเร็จ
 
@@ -159,7 +185,7 @@ class UploadQueue {
 
 เว็บไซต์: ${webAppUrl}`;
       }
-      
+
       if (message) {
         await lineClient.pushMessage(userId, {
           type: 'text',
@@ -175,13 +201,21 @@ class UploadQueue {
   cleanupQueue() {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const initialLength = this.queue.length;
-    
+
+    console.log(`[QUEUE] Starting cleanup. Current queue length: ${initialLength}`);
+
     this.queue = this.queue.filter(item => {
-      const shouldKeep = item.status === 'pending' || item.status === 'processing' || 
-                        (item.completedAt && item.completedAt > oneHourAgo) ||
+      // Keep all pending and processing items
+      if (item.status === 'pending' || item.status === 'processing') {
+        return true;
+      }
+
+      // Keep completed/failed items that are less than 1 hour old
+      const shouldKeep = (item.completedAt && item.completedAt > oneHourAgo) ||
                         (!item.completedAt && item.addedAt > oneHourAgo);
-      
+
       if (!shouldKeep) {
+        console.log(`[QUEUE] Removing old item: ${item.fileName} (status: ${item.status})`);
         // Remove from user queues
         const userFileIds = this.userQueues.get(item.userId) || [];
         const updatedUserFileIds = userFileIds.filter(id => id !== item.id);
@@ -191,12 +225,14 @@ class UploadQueue {
           this.userQueues.set(item.userId, updatedUserFileIds);
         }
       }
-      
+
       return shouldKeep;
     });
-    
+
     if (this.queue.length !== initialLength) {
-      console.log(`[QUEUE] Cleaned up ${initialLength - this.queue.length} old items`);
+      console.log(`[QUEUE] Cleaned up ${initialLength - this.queue.length} old items. New length: ${this.queue.length}`);
+    } else {
+      console.log(`[QUEUE] No items to clean up`);
     }
   }
 
