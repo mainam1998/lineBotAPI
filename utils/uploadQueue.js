@@ -161,47 +161,71 @@ class UploadQueue {
     this.cleanupQueue();
   }
 
-  // Modern upload file function with 2024 best practices
+  // Modern upload file function with fallback support
   async uploadFile(item) {
     try {
-      const { initGoogleDrive, modernUpload } = require('./googleDriveModern');
+      console.log(`[QUEUE] Starting upload for ${item.fileName} (size: ${(item.buffer.length / (1024 * 1024)).toFixed(2)} MB)`);
 
-      console.log(`[QUEUE] Modern uploading ${item.fileName} to Google Drive (size: ${(item.buffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+      // Try modern upload first
+      try {
+        const { initGoogleDrive, modernUpload } = require('./googleDriveModern');
+        const drive = initGoogleDrive();
 
-      const drive = initGoogleDrive();
+        console.log(`[QUEUE] Attempting modern upload for ${item.fileName}`);
 
-      // Use modern upload with automatic strategy selection
-      const uploadPromise = modernUpload(
-        drive,
-        item.fileName,
-        item.buffer,
-        process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
-      );
+        // Use modern upload with automatic strategy selection and fallback
+        const uploadPromise = modernUpload(
+          drive,
+          item.fileName,
+          item.buffer,
+          process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
+        );
 
-      // Smart timeout based on file size and upload strategy
-      const fileSizeInMB = item.buffer.length / (1024 * 1024);
-      let smartUploadTimeout;
+        // Smart timeout based on file size
+        const fileSizeInMB = item.buffer.length / (1024 * 1024);
+        const smartUploadTimeout = Math.max(90000, fileSizeInMB * 15000); // Min 1.5 min, +15s per MB
 
-      if (fileSizeInMB > 5) {
-        // Resumable upload for large files - longer timeout
-        smartUploadTimeout = Math.max(120000, fileSizeInMB * 20000); // Min 2 min, +20s per MB
-      } else {
-        // Multipart upload for small files - shorter timeout
-        smartUploadTimeout = Math.max(60000, fileSizeInMB * 15000); // Min 1 min, +15s per MB
+        console.log(`[QUEUE] Using smart timeout: ${Math.round(smartUploadTimeout/1000)}s`);
+
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error(`Upload timeout after ${Math.round(smartUploadTimeout/1000)} seconds`)), smartUploadTimeout);
+        });
+
+        const result = await Promise.race([uploadPromise, timeoutPromise]);
+
+        console.log(`[QUEUE] Modern upload successful for ${item.fileName}:`, result);
+        return result;
+
+      } catch (modernError) {
+        console.warn(`[QUEUE] Modern upload failed for ${item.fileName}, trying legacy upload:`, modernError.message);
+
+        // Fallback to legacy upload
+        const { initGoogleDrive, resumableUpload } = require('./googleDrive');
+        const drive = initGoogleDrive();
+
+        console.log(`[QUEUE] Attempting legacy upload for ${item.fileName}`);
+
+        const legacyUploadPromise = resumableUpload(
+          drive,
+          item.fileName,
+          item.buffer,
+          process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
+        );
+
+        // Longer timeout for legacy upload
+        const legacyTimeout = 180000; // 3 minutes
+        const legacyTimeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error(`Legacy upload timeout after ${legacyTimeout/1000} seconds`)), legacyTimeout);
+        });
+
+        const result = await Promise.race([legacyUploadPromise, legacyTimeoutPromise]);
+
+        console.log(`[QUEUE] Legacy upload successful for ${item.fileName}:`, result);
+        return result;
       }
 
-      console.log(`[QUEUE] Using ${fileSizeInMB > 5 ? 'resumable' : 'multipart'} upload with ${Math.round(smartUploadTimeout/1000)}s timeout`);
-
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(`Modern upload timeout after ${Math.round(smartUploadTimeout/1000)} seconds`)), smartUploadTimeout);
-      });
-
-      const result = await Promise.race([uploadPromise, timeoutPromise]);
-
-      console.log(`[QUEUE] Modern upload successful for ${item.fileName}:`, result);
-      return result;
     } catch (error) {
-      console.error(`[QUEUE] Modern upload failed for ${item.fileName}:`, error);
+      console.error(`[QUEUE] All upload methods failed for ${item.fileName}:`, error);
       throw error;
     }
   }

@@ -81,7 +81,7 @@ export const streamToBuffer = async (stream, timeoutMs = 60000) => {
  */
 export const getMimeType = (fileName) => {
   const fileExtension = fileName.split('.').pop()?.toLowerCase();
-  
+
   const mimeTypes = {
     // Images
     'jpg': 'image/jpeg',
@@ -91,7 +91,7 @@ export const getMimeType = (fileName) => {
     'bmp': 'image/bmp',
     'webp': 'image/webp',
     'svg': 'image/svg+xml',
-    
+
     // Videos
     'mp4': 'video/mp4',
     'mov': 'video/quicktime',
@@ -99,7 +99,7 @@ export const getMimeType = (fileName) => {
     'wmv': 'video/x-ms-wmv',
     'flv': 'video/x-flv',
     'webm': 'video/webm',
-    
+
     // Audio
     'm4a': 'audio/mp4',
     'mp3': 'audio/mpeg',
@@ -107,7 +107,7 @@ export const getMimeType = (fileName) => {
     'flac': 'audio/flac',
     'aac': 'audio/aac',
     'ogg': 'audio/ogg',
-    
+
     // Documents
     'pdf': 'application/pdf',
     'doc': 'application/msword',
@@ -118,14 +118,14 @@ export const getMimeType = (fileName) => {
     'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'txt': 'text/plain',
     'rtf': 'application/rtf',
-    
+
     // Archives
     'zip': 'application/zip',
     'rar': 'application/vnd.rar',
     '7z': 'application/x-7z-compressed',
     'tar': 'application/x-tar',
     'gz': 'application/gzip',
-    
+
     // Other
     'json': 'application/json',
     'xml': 'application/xml',
@@ -139,7 +139,7 @@ export const getMimeType = (fileName) => {
 };
 
 /**
- * Modern Google Drive upload with automatic strategy selection
+ * Modern Google Drive upload with automatic strategy selection and fallback
  * Based on Google Drive API v3 best practices 2024
  * @param {import('googleapis').drive_v3.Drive} drive - Google Drive instance
  * @param {string} fileName - Name of the file
@@ -156,22 +156,60 @@ export const modernUpload = async (drive, fileName, buffer, folderId) => {
     const mimeType = getMimeType(fileName);
     console.log('[DRIVE] MIME type:', mimeType);
 
-    // Determine upload strategy based on file size
-    const fileSizeInMB = buffer.length / (1024 * 1024);
-    const useResumableUpload = fileSizeInMB > 5; // Use resumable for files > 5MB
+    // Try modern upload first
+    try {
+      // Determine upload strategy based on file size
+      const fileSizeInMB = buffer.length / (1024 * 1024);
+      const useResumableUpload = fileSizeInMB > 5; // Use resumable for files > 5MB
 
-    if (useResumableUpload) {
-      console.log('[DRIVE] Using resumable upload for large file');
-      return await performResumableUpload(drive, fileName, buffer, mimeType, folderId);
-    } else {
-      console.log('[DRIVE] Using multipart upload for small file');
-      return await performMultipartUpload(drive, fileName, buffer, mimeType, folderId);
+      if (useResumableUpload) {
+        console.log('[DRIVE] Using resumable upload for large file');
+        return await performResumableUpload(drive, fileName, buffer, mimeType, folderId);
+      } else {
+        console.log('[DRIVE] Using multipart upload for small file');
+        return await performMultipartUpload(drive, fileName, buffer, mimeType, folderId);
+      }
+    } catch (modernError) {
+      console.warn('[DRIVE] Modern upload failed, falling back to simple upload:', modernError.message);
+
+      // Fallback to simple upload using googleapis directly
+      return await performSimpleUpload(drive, fileName, buffer, mimeType, folderId);
     }
   } catch (error) {
-    console.error('[DRIVE] Upload failed:', error.message);
+    console.error('[DRIVE] All upload methods failed:', error.message);
     throw new Error(`Google Drive upload failed: ${error.message}`);
   }
 };
+
+/**
+ * Simple fallback upload using googleapis directly
+ */
+async function performSimpleUpload(drive, fileName, buffer, mimeType, folderId) {
+  try {
+    console.log('[DRIVE] Executing simple fallback upload');
+
+    const fileStream = Readable.from(buffer);
+
+    const response = await drive.files.create({
+      requestBody: {
+        name: fileName,
+        parents: [folderId || 'root'],
+      },
+      media: {
+        mimeType: mimeType,
+        body: fileStream,
+      },
+      fields: 'id,name,webViewLink,mimeType,size',
+    });
+
+    console.log('[DRIVE] Simple upload successful:', response.data.id);
+    return formatUploadResult(response.data);
+
+  } catch (error) {
+    console.error('[DRIVE] Simple upload error:', error.message);
+    throw error;
+  }
+}
 
 /**
  * Perform multipart upload for small files (< 5MB)
@@ -180,7 +218,7 @@ export const modernUpload = async (drive, fileName, buffer, folderId) => {
 async function performMultipartUpload(drive, fileName, buffer, mimeType, folderId) {
   try {
     console.log('[DRIVE] Executing multipart upload');
-    
+
     const fileStream = Readable.from(buffer);
 
     // Smart timeout based on file size
@@ -210,10 +248,10 @@ async function performMultipartUpload(drive, fileName, buffer, mimeType, folderI
     });
 
     const response = await Promise.race([uploadPromise, timeoutPromise]);
-    
+
     console.log('[DRIVE] Multipart upload successful:', response.data.id);
     return formatUploadResult(response.data);
-    
+
   } catch (error) {
     console.error('[DRIVE] Multipart upload error:', error.message);
     throw error;
@@ -227,17 +265,17 @@ async function performMultipartUpload(drive, fileName, buffer, mimeType, folderI
 async function performResumableUpload(drive, fileName, buffer, mimeType, folderId) {
   try {
     console.log('[DRIVE] Executing resumable upload');
-    
+
     // Step 1: Initiate resumable upload session
-    const sessionUri = await initiateResumableSession(drive, fileName, mimeType, folderId);
+    const sessionUri = await initiateResumableSession(drive, fileName, mimeType, folderId, buffer);
     console.log('[DRIVE] Resumable session initiated');
 
     // Step 2: Upload file data
     const result = await uploadFileData(sessionUri, buffer, mimeType);
     console.log('[DRIVE] Resumable upload successful:', result.id);
-    
+
     return formatUploadResult(result);
-    
+
   } catch (error) {
     console.error('[DRIVE] Resumable upload error:', error.message);
     throw error;
@@ -247,7 +285,7 @@ async function performResumableUpload(drive, fileName, buffer, mimeType, folderI
 /**
  * Initiate resumable upload session
  */
-async function initiateResumableSession(drive, fileName, mimeType, folderId) {
+async function initiateResumableSession(drive, fileName, mimeType, folderId, buffer) {
   const metadata = {
     name: fileName,
     parents: [folderId || 'root']
@@ -255,7 +293,7 @@ async function initiateResumableSession(drive, fileName, mimeType, folderId) {
 
   try {
     const accessToken = await getAccessToken(drive);
-    
+
     const response = await axios.post(
       'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
       metadata,
@@ -315,10 +353,16 @@ async function uploadFileData(sessionUri, buffer, mimeType) {
  */
 async function getAccessToken(drive) {
   try {
+    // Get auth client from drive instance
     const auth = drive.context._options.auth;
-    const accessToken = await auth.getAccessToken();
-    return accessToken.token;
+
+    // Get access token
+    const credentials = await auth.getAccessToken();
+
+    // Return the token
+    return credentials.token || credentials;
   } catch (error) {
+    console.error('[DRIVE] Failed to get access token:', error);
     throw new Error(`Failed to get access token: ${error.message}`);
   }
 }
