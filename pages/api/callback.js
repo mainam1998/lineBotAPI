@@ -296,63 +296,18 @@ export default async function handler(req, res) {
 
     } // End of text events loop
 
-    // Handle file messages with summary response
+    // Handle file messages with simplified processing
     if (fileEvents.length > 0) {
-      console.log(`[DEBUG] Processing ${fileEvents.length} file events`);
+      console.log(`[SIMPLE] Processing ${fileEvents.length} file events`);
 
       const userId = fileEvents[0].source.userId;
       const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
 
-      // Create file checklist for tracking
-      const fileChecklist = fileEvents.map((event, index) => {
-        let fileName;
-        switch (event.message.type) {
-          case 'file':
-            fileName = event.message.fileName;
-            break;
-          case 'image':
-            fileName = `image_${event.message.id}.jpg`;
-            break;
-          case 'video':
-            fileName = `video_${event.message.id}.mp4`;
-            break;
-          case 'audio':
-            fileName = `audio_${event.message.id}.m4a`;
-            break;
-          default:
-            fileName = `file_${event.message.id}`;
-        }
-
-        return {
-          index: index + 1,
-          messageId: event.message.id,
-          fileName: fileName,
-          fileType: event.message.type,
-          status: 'pending', // pending, downloading, uploading, completed, failed
-          startTime: null,
-          completedTime: null,
-          error: null
-        };
-      });
-
-      console.log(`[CHECKLIST] Created checklist for ${fileChecklist.length} files:`,
-        fileChecklist.map(f => `${f.index}. ${f.fileName} (${f.status})`));
-
-      // Send single summary response for all files
-      const checklistText = fileChecklist.map(f => `${f.index}. ${f.fileName} ⏳`).join('\n');
-
+      // Send simple summary response
       const summaryMessage = `📁 รับไฟล์ ${fileEvents.length} ไฟล์แล้ว
 
-📋 รายการไฟล์:
-${checklistText}
-
-📊 สถานะ:
-• รับไฟล์แล้ว: ${fileEvents.length} ไฟล์
-• รอดำเนินการ: ${fileEvents.length} ไฟล์
-• กำลังประมวลผล: 0 ไฟล์
-• เสร็จแล้ว: 0 ไฟล์
-
-⏳ ระบบจะประมวลผลทีละไฟล์ตามลำดับ
+⏳ ระบบจะประมวลผลทีละไฟล์
+📊 ระบบจะแจ้งผลลัพธ์เมื่อเสร็จ
 
 🌐 เว็บไซต์: ${webAppUrl}`;
 
@@ -361,91 +316,56 @@ ${checklistText}
         text: summaryMessage,
       });
 
-      // Process files sequentially (one by one) instead of parallel processing
-      const processFileSequentially = async (fileIndex = 0) => {
-        if (fileIndex >= fileEvents.length) {
-          console.log(`[CHECKLIST] All ${fileEvents.length} files processed`);
-
-          // Send final summary
-          const finalSummary = `✅ ประมวลผลไฟล์เสร็จสิ้น
-
-📊 สรุปผลลัพธ์:
-• ไฟล์ทั้งหมด: ${fileEvents.length} ไฟล์
-• ดูรายละเอียดได้ที่เว็บไซต์
-
-🌐 เว็บไซต์: ${webAppUrl}`;
-
-          try {
-            await lineClient.pushMessage(userId, {
-              type: 'text',
-              text: finalSummary,
-            });
-          } catch (lineError) {
-            console.error(`[CHECKLIST] Failed to send final summary: ${lineError.message}`);
-          }
-          return;
-        }
-
-        const event = fileEvents[fileIndex];
-        const currentFile = fileChecklist[fileIndex];
+      // Process each file immediately and simply
+      for (let i = 0; i < fileEvents.length; i++) {
+        const event = fileEvents[i];
         const messageId = event.message.id;
 
-        console.log(`[CHECKLIST] Processing file ${currentFile.index}/${fileEvents.length}: ${currentFile.fileName}`);
-
-        // Update checklist status
-        currentFile.status = 'downloading';
-        currentFile.startTime = new Date();
-
-        // Send progress update
-        const progressMessage = `🔄 กำลังประมวลผลไฟล์ ${currentFile.index}/${fileEvents.length}
-
-📁 ไฟล์: ${currentFile.fileName}
-📊 สถานะ: กำลังดาวน์โหลด...
-
-⏳ กรุณารอสักครู่`;
-
-        try {
-          await lineClient.pushMessage(userId, {
-            type: 'text',
-            text: progressMessage,
-          });
-        } catch (lineError) {
-          console.error(`[CHECKLIST] Failed to send progress message: ${lineError.message}`);
-          // Continue processing even if message sending fails
+        // Generate simple filename
+        let fileName;
+        switch (event.message.type) {
+          case 'file':
+            fileName = event.message.fileName || `file_${messageId}`;
+            break;
+          case 'image':
+            fileName = `image_${messageId}.jpg`;
+            break;
+          case 'video':
+            fileName = `video_${messageId}.mp4`;
+            break;
+          case 'audio':
+            fileName = `audio_${messageId}.m4a`;
+            break;
+          default:
+            fileName = `file_${messageId}`;
         }
 
-        try {
-          console.log(`[BACKGROUND] Starting file processing for: ${currentFile.fileName}`);
+        console.log(`[SIMPLE] Processing file ${i + 1}/${fileEvents.length}: ${fileName}`);
 
-          // Download file with smart timeout based on file type
+        // Process file in background with delay to avoid overwhelming
+        const processingDelay = i * 2000; // 2 seconds between each file
+        setTimeout(async () => {
+          try {
+            console.log(`[SIMPLE] Starting background processing for: ${fileName}`);
+
+            // Download file from LINE
             let stream = null;
             let retryCount = 0;
-            const maxRetries = 2; // Reduce retries for faster processing
+            const maxRetries = 2;
 
-          // Smart timeout based on file type - increased for better reliability
-          const getSmartTimeout = (messageType) => {
-            switch (messageType) {
-              case 'image': return 25000; // 25s for images (increased from 15s)
-              case 'video': return 45000; // 45s for videos (increased from 30s)
-              case 'audio': return 35000; // 35s for audio (increased from 25s)
-              default: return 30000; // 30s for other files (increased from 20s)
-            }
-          };
-
-          const smartTimeout = getSmartTimeout(event.message.type);
+            // Simple timeout - 30 seconds for all files
+            const downloadTimeout = 30000;
 
             while (retryCount < maxRetries && !stream) {
               try {
-                console.log(`[BACKGROUND] Getting file content from LINE, message ID: ${messageId} (attempt ${retryCount + 1}/${maxRetries}, timeout: ${smartTimeout}ms)`);
+                console.log(`[SIMPLE] Downloading from LINE (attempt ${retryCount + 1}/${maxRetries})`);
 
-                // Create new LINE client instance for each retry
                 const { initLineClient } = require('../../utils/lineClient');
                 const freshLineClient = initLineClient();
 
-                // Smart timeout based on file type
                 const downloadPromise = freshLineClient.getMessageContent(messageId);
                 const timeoutPromise = new Promise((_, reject) => {
-                  setTimeout(() => reject(new Error(`Download timeout after ${smartTimeout/1000} seconds`)), smartTimeout);
+                  setTimeout(() => reject(new Error(`Download timeout after 30 seconds`)), downloadTimeout);
                 });
 
                 stream = await Promise.race([downloadPromise, timeoutPromise]);
@@ -454,153 +374,96 @@ ${checklistText}
                   throw new Error('Received empty stream from LINE');
                 }
 
-                console.log(`[BACKGROUND] File content stream received successfully for: ${fileName}`);
+                console.log(`[SIMPLE] Download successful for: ${fileName}`);
                 break;
 
               } catch (downloadError) {
                 retryCount++;
-                console.error(`[BACKGROUND] Download attempt ${retryCount} failed for ${fileName}:`, downloadError.message);
+                console.error(`[SIMPLE] Download attempt ${retryCount} failed for ${fileName}:`, downloadError.message);
 
                 if (retryCount < maxRetries) {
-                  // Quick retry with shorter delay
-                  const retryDelay = 2000 + (Math.random() * 1000); // 2-3s random delay
-                  console.log(`[BACKGROUND] Retrying download in ${Math.round(retryDelay)}ms...`);
+                  const retryDelay = 3000; // 3 seconds retry delay
+                  console.log(`[SIMPLE] Retrying in ${retryDelay}ms...`);
                   await new Promise(resolve => setTimeout(resolve, retryDelay));
                 } else {
-                  throw new Error(`Failed to download file after ${maxRetries} attempts: ${downloadError.message}`);
+                  throw new Error(`Failed to download after ${maxRetries} attempts: ${downloadError.message}`);
                 }
               }
             }
 
-          // Convert stream to buffer with timeout
-          console.log(`[CHECKLIST] Converting stream to buffer for: ${currentFile.fileName}`);
-          const buffer = await streamToBuffer(stream, 30000);
-          console.log(`[CHECKLIST] Stream converted successfully, size: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB`);
+            // Convert stream to buffer
+            console.log(`[SIMPLE] Converting stream to buffer for: ${fileName}`);
+            const buffer = await streamToBuffer(stream, 30000);
+            console.log(`[SIMPLE] Buffer ready, size: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB`);
 
-          // Update status to uploading
-          currentFile.status = 'uploading';
+            // Add to upload queue with simple callback
+            console.log(`[SIMPLE] Adding to upload queue: ${fileName}`);
+            uploadQueue.addToQueue(userId, {
+              fileName: fileName,
+              buffer: buffer,
+              messageId: messageId,
+              messageType: event.message.type,
+              onComplete: async (success, result, error) => {
+                try {
+                  if (success) {
+                    const successMessage = `✅ อัพโหลดสำเร็จ
 
-          // Send upload progress update
-          const uploadMessage = `📤 กำลังอัพโหลดไฟล์ ${currentFile.index}/${fileEvents.length}
-
-📁 ไฟล์: ${currentFile.fileName}
-📊 ขนาด: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB
-📊 สถานะ: กำลังอัพโหลดไป Google Drive...
-
-⏳ กรุณารอสักครู่`;
-
-          try {
-            await lineClient.pushMessage(userId, {
-              type: 'text',
-              text: uploadMessage,
-            });
-          } catch (lineError) {
-            console.error(`[CHECKLIST] Failed to send upload message: ${lineError.message}`);
-            // Continue processing even if message sending fails
-          }
-
-          // Add file to upload queue immediately
-          console.log(`[CHECKLIST] Adding file to upload queue: ${currentFile.fileName}`);
-          const queueId = uploadQueue.addToQueue(userId, {
-            fileName: currentFile.fileName,
-            buffer,
-            messageId,
-            messageType: event.message.type,
-            checklistIndex: fileIndex,
-            onComplete: async (success, result, error) => {
-              if (success) {
-                currentFile.status = 'completed';
-                currentFile.completedTime = new Date();
-
-                // Send success message
-                const successMessage = `✅ อัพโหลดสำเร็จ ${currentFile.index}/${fileEvents.length}
-
-📁 ไฟล์: ${currentFile.fileName}
+📁 ไฟล์: ${fileName}
 🔗 ลิงก์: ${result.webViewLink || 'ไม่สามารถสร้างลิงก์ได้'}
 
-⏭️ ดำเนินการไฟล์ถัดไป...`;
+🌐 เว็บไซต์: ${webAppUrl}`;
 
-                try {
-                  await lineClient.pushMessage(userId, {
-                    type: 'text',
-                    text: successMessage,
-                  });
-                } catch (lineError) {
-                  console.error(`[CHECKLIST] Failed to send success message: ${lineError.message}`);
-                }
-              } else {
-                currentFile.status = 'failed';
-                currentFile.error = error;
+                    await lineClient.pushMessage(userId, {
+                      type: 'text',
+                      text: successMessage,
+                    });
+                  } else {
+                    const errorMessage = `❌ อัพโหลดล้มเหลว
 
-                // Send error message
-                const errorMessage = `❌ อัพโหลดล้มเหลว ${currentFile.index}/${fileEvents.length}
-
-📁 ไฟล์: ${currentFile.fileName}
+📁 ไฟล์: ${fileName}
 🔍 สาเหตุ: ${error}
 
-⏭️ ดำเนินการไฟล์ถัดไป...`;
+💡 ลองส่งไฟล์ใหม่อีกครั้ง
 
-                try {
-                  await lineClient.pushMessage(userId, {
-                    type: 'text',
-                    text: errorMessage,
-                  });
-                } catch (lineError) {
-                  console.error(`[CHECKLIST] Failed to send error message: ${lineError.message}`);
+🌐 เว็บไซต์: ${webAppUrl}`;
+
+                    await lineClient.pushMessage(userId, {
+                      type: 'text',
+                      text: errorMessage,
+                    });
+                  }
+                } catch (notifyError) {
+                  console.error(`[SIMPLE] Failed to notify user: ${notifyError.message}`);
                 }
               }
-
-              // Process next file
-              setTimeout(() => processFileSequentially(fileIndex + 1), 1000);
-            }
-          });
-
-          console.log(`[CHECKLIST] File added to queue with ID: ${queueId}`);
-
-        } catch (downloadError) {
-          console.error(`[CHECKLIST] Error processing file ${currentFile.index}: ${downloadError.message}`);
-
-          // Update checklist status
-          currentFile.status = 'failed';
-          currentFile.error = downloadError.message;
-
-          // Notify user about error
-          let errorType = 'ไม่ทราบสาเหตุ';
-          if (downloadError.message.includes('timeout')) {
-            errorType = 'หมดเวลาในการดาวน์โหลด (ไฟล์อาจใหญ่เกินไป)';
-          } else if (downloadError.message.includes('socket')) {
-            errorType = 'ปัญหาการเชื่อมต่อเครือข่าย';
-          } else if (downloadError.message.includes('stream')) {
-            errorType = 'ปัญหาในการประมวลผลไฟล์';
-          }
-
-          const errorMessage = `❌ ประมวลผลล้มเหลว ${currentFile.index}/${fileEvents.length}
-
-📁 ไฟล์: ${currentFile.fileName}
-🔍 สาเหตุ: ${errorType}
-
-💡 แนะนำ:
-- ลองส่งไฟล์ใหม่อีกครั้ง
-- หากไฟล์ใหญ่ ลองย่อขนาดก่อนส่ง
-
-⏭️ ดำเนินการไฟล์ถัดไป...`;
-
-          try {
-            await lineClient.pushMessage(userId, {
-              type: 'text',
-              text: errorMessage,
             });
-          } catch (lineError) {
-            console.error(`[CHECKLIST] Failed to send download error message: ${lineError.message}`);
+
+            console.log(`[SIMPLE] File ${fileName} added to queue successfully`);
+
+          } catch (processingError) {
+            console.error(`[SIMPLE] Processing failed for ${fileName}:`, processingError.message);
+
+            // Send error notification
+            try {
+              const errorMessage = `❌ ประมวลผลล้มเหลว
+
+📁 ไฟล์: ${fileName}
+🔍 สาเหตุ: ${processingError.message}
+
+💡 ลองส่งไฟล์ใหม่อีกครั้ง
+
+🌐 เว็บไซต์: ${webAppUrl}`;
+
+              await lineClient.pushMessage(userId, {
+                type: 'text',
+                text: errorMessage,
+              });
+            } catch (notifyError) {
+              console.error(`[SIMPLE] Failed to send error notification: ${notifyError.message}`);
+            }
           }
-
-          // Process next file after error
-          setTimeout(() => processFileSequentially(fileIndex + 1), 1000);
-        }
-      };
-
-      // Start processing files sequentially
-      processFileSequentially(0);
+        }, processingDelay);
+      }
     } // End of file events handling
 
     return res.status(200).end();
