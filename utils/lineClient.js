@@ -1,13 +1,33 @@
 import { Client, validateSignature } from '@line/bot-sdk';
 
 /**
- * Initialize LINE client
+ * Initialize LINE client with enhanced configuration
  * @returns {import('@line/bot-sdk').Client} LINE client
  */
 export const initLineClient = () => {
   const lineConfig = {
     channelSecret: process.env.LINE_CHANNEL_SECRET,
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+    // Add HTTP client configuration for better connection handling
+    httpConfig: {
+      timeout: 60000, // 60 seconds timeout
+      keepAlive: true, // Enable keep-alive
+      maxSockets: 10, // Limit concurrent connections
+      maxFreeSockets: 5, // Keep some connections open
+      // Add retry configuration
+      retry: {
+        retries: 3,
+        retryDelay: (retryCount) => Math.min(1000 * Math.pow(2, retryCount), 10000), // Exponential backoff
+        retryCondition: (error) => {
+          // Retry on network errors and 5xx responses
+          return error.code === 'ECONNRESET' ||
+                 error.code === 'ENOTFOUND' ||
+                 error.code === 'ECONNREFUSED' ||
+                 error.code === 'ETIMEDOUT' ||
+                 (error.response && error.response.status >= 500);
+        }
+      }
+    }
   };
 
   return new Client(lineConfig);

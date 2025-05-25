@@ -341,7 +341,7 @@ export default async function handler(req, res) {
         }
 
         // Process file in background with delay to avoid rate limiting
-        const processingDelay = i * 2000; // 2 seconds delay per file
+        const processingDelay = i * 3000; // 3 seconds delay per file (increased for TLS stability)
         setTimeout(async () => {
           try {
             console.log(`[BACKGROUND] Starting background file processing for: ${fileName} (delay: ${processingDelay}ms)`);
@@ -355,10 +355,14 @@ export default async function handler(req, res) {
               try {
                 console.log(`[BACKGROUND] Getting file content from LINE, message ID: ${messageId} (attempt ${retryCount + 1}/${maxRetries})`);
 
-                // Add timeout for LINE API call
-                const downloadPromise = lineClient.getMessageContent(messageId);
+                // Create new LINE client instance for each retry to avoid connection issues
+                const { initLineClient } = require('../../utils/lineClient');
+                const freshLineClient = initLineClient();
+
+                // Add timeout for LINE API call with longer timeout for TLS issues
+                const downloadPromise = freshLineClient.getMessageContent(messageId);
                 const timeoutPromise = new Promise((_, reject) => {
-                  setTimeout(() => reject(new Error('Download timeout after 30 seconds')), 30000);
+                  setTimeout(() => reject(new Error('Download timeout after 45 seconds')), 45000);
                 });
 
                 stream = await Promise.race([downloadPromise, timeoutPromise]);
@@ -375,8 +379,12 @@ export default async function handler(req, res) {
                 console.error(`[BACKGROUND] Download attempt ${retryCount} failed for ${fileName}:`, downloadError.message);
 
                 if (retryCount < maxRetries) {
-                  const retryDelay = retryCount * 3000; // Exponential backoff: 3s, 6s, 9s
-                  console.log(`[BACKGROUND] Retrying download in ${retryDelay}ms...`);
+                  // Progressive backoff with jitter to avoid thundering herd
+                  const baseDelay = retryCount * 5000; // 5s, 10s, 15s
+                  const jitter = Math.random() * 2000; // Add 0-2s random delay
+                  const retryDelay = baseDelay + jitter;
+
+                  console.log(`[BACKGROUND] Retrying download in ${Math.round(retryDelay)}ms...`);
                   await new Promise(resolve => setTimeout(resolve, retryDelay));
                 } else {
                   throw new Error(`Failed to download file after ${maxRetries} attempts: ${downloadError.message}`);

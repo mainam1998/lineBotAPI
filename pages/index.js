@@ -177,7 +177,31 @@ export default function Home() {
 
           {/* System Status Card */}
           <div className={styles.card}>
-            <h2 className={styles.cardTitle}>สถานะระบบ</h2>
+            <div className={styles.cardHeader}>
+              <h2 className={styles.cardTitle}>สถานะระบบ</h2>
+              {queueStatus && (
+                <div className={styles.queueStatusTopRight}>
+                  <span className={styles.queueTopIcon}>📋</span>
+                  <span className={styles.queueTopStat}>
+                    ⏳รอ {queueStatus.stats.pending}
+                  </span>
+                  <span className={styles.queueTopStat}>
+                    🔄ทำงาน {queueStatus.stats.processing}
+                  </span>
+                  <span className={styles.queueTopStat}>
+                    ✅สำเร็จ {queueStatus.stats.completed}
+                  </span>
+                  {queueStatus.stats.failed > 0 && (
+                    <span className={styles.queueTopStat}>
+                      ❌ล้มเหลว {queueStatus.stats.failed}
+                    </span>
+                  )}
+                  <span className={styles.queueTopTotal}>
+                    รวม {queueStatus.stats.total} ไฟล์
+                  </span>
+                </div>
+              )}
+            </div>
             <div className={styles.statusContent}>
               <div className={styles.statusInfo}>
                 <p>
@@ -187,22 +211,6 @@ export default function Home() {
                   <span className={styles.statusDot}></span>
                   บอทพร้อมรับข้อความแล้ว
                 </p>
-                {queueStatus && (
-                  <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#150259', borderRadius: '6px' }}>
-                    <p style={{ color: '#fff', margin: '0 0 0.5rem 0', fontWeight: '600' }}>สถานะคิวอัพโหลด:</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem', fontSize: '0.9rem' }}>
-                      <div style={{ color: '#4630D9' }}>รอดำเนินการ: {queueStatus.stats.pending}</div>
-                      <div style={{ color: '#4630D9' }}>กำลังอัพโหลด: {queueStatus.stats.processing}</div>
-                      <div style={{ color: '#4630D9' }}>สำเร็จแล้ว: {queueStatus.stats.completed}</div>
-                      <div style={{ color: '#4630D9' }}>ล้มเหลว: {queueStatus.stats.failed}</div>
-                    </div>
-                    {queueStatus.recentActivity.totalProcessed > 0 && (
-                      <p style={{ color: '#4630D9', margin: '0.5rem 0 0 0', fontSize: '0.85rem' }}>
-                        อัตราความสำเร็จ: {queueStatus.recentActivity.successRate}%
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
               <div>
                 <button
