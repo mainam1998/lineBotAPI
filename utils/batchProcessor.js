@@ -103,7 +103,19 @@ class BatchProcessor {
         const buffer = await this.streamToBuffer(stream);
 
         // อัพโหลดไป Google Drive
-        const result = await this.uploadToGoogleDrive(file.fileName, buffer);
+        let result;
+        try {
+          result = await this.uploadToGoogleDrive(file.fileName, buffer);
+        } catch (uploadError) {
+          // Handle specific upload errors
+          let errorMessage = uploadError.message;
+          if (errorMessage.includes('t is not a function')) {
+            errorMessage = 'ปัญหาการเรียกใช้ฟังก์ชัน (Module Error)';
+          } else if (errorMessage.includes('Module import failed')) {
+            errorMessage = 'ปัญหาการโหลดโมดูล (Import Error)';
+          }
+          throw new Error(errorMessage);
+        }
 
         // อัพเดทสถานะ
         file.status = 'completed';
@@ -212,23 +224,113 @@ class BatchProcessor {
    * แปลง stream เป็น buffer
    */
   async streamToBuffer(stream) {
-    const { streamToBuffer } = require('./googleDriveModern');
-    return await streamToBuffer(stream, 60000);
+    try {
+      // Use dynamic import for ES modules
+      const googleDriveModule = await import('./googleDriveModern.js');
+      const { streamToBuffer } = googleDriveModule;
+      return await streamToBuffer(stream, 60000);
+    } catch (importError) {
+      console.error(`[BATCH] Failed to import streamToBuffer:`, importError);
+
+      // Fallback to manual stream to buffer conversion
+      return await this.manualStreamToBuffer(stream);
+    }
   }
 
   /**
-   * อัพโหลดไป Google Drive with fallback
+   * Manual stream to buffer conversion (fallback)
+   */
+  async manualStreamToBuffer(stream) {
+    return new Promise((resolve, reject) => {
+      const chunks = [];
+      let isResolved = false;
+
+      const timeout = setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          stream.destroy();
+          reject(new Error('Stream to buffer timeout after 60 seconds'));
+        }
+      }, 60000);
+
+      stream.on('data', (chunk) => {
+        if (!isResolved) {
+          chunks.push(chunk);
+        }
+      });
+
+      stream.on('error', (error) => {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          reject(error);
+        }
+      });
+
+      stream.on('end', () => {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          resolve(Buffer.concat(chunks));
+        }
+      });
+
+      stream.on('close', () => {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          resolve(Buffer.concat(chunks));
+        }
+      });
+    });
+  }
+
+  /**
+   * อัพโหลดไป Google Drive with multiple fallbacks
    */
   async uploadToGoogleDrive(fileName, buffer) {
-    // Try direct upload first (faster)
+    // Try 1: Direct modern upload
     try {
-      console.log(`[BATCH] Attempting direct upload for: ${fileName}`);
+      console.log(`[BATCH] Attempting direct modern upload for: ${fileName}`);
       return await this.directUploadToGoogleDrive(fileName, buffer);
     } catch (directError) {
-      console.warn(`[BATCH] Direct upload failed for ${fileName}, using queue: ${directError.message}`);
+      console.warn(`[BATCH] Direct modern upload failed for ${fileName}: ${directError.message}`);
 
-      // Fallback to upload queue
-      return await this.queueUploadToGoogleDrive(fileName, buffer);
+      // Try 2: Legacy upload
+      try {
+        console.log(`[BATCH] Attempting legacy upload for: ${fileName}`);
+        return await this.legacyUploadToGoogleDrive(fileName, buffer);
+      } catch (legacyError) {
+        console.warn(`[BATCH] Legacy upload failed for ${fileName}: ${legacyError.message}`);
+
+        // Try 3: Upload queue (last resort)
+        console.log(`[BATCH] Using upload queue as last resort for: ${fileName}`);
+        return await this.queueUploadToGoogleDrive(fileName, buffer);
+      }
+    }
+  }
+
+  /**
+   * Legacy upload to Google Drive
+   */
+  async legacyUploadToGoogleDrive(fileName, buffer) {
+    try {
+      // Use legacy googleDrive module
+      const { initGoogleDrive, resumableUpload } = require('./googleDrive');
+
+      const drive = initGoogleDrive();
+      const result = await resumableUpload(
+        drive,
+        fileName,
+        buffer,
+        process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
+      );
+
+      console.log(`[BATCH] Legacy upload successful for: ${fileName}`);
+      return result;
+    } catch (legacyError) {
+      console.error(`[BATCH] Legacy upload error for ${fileName}:`, legacyError);
+      throw new Error(`Legacy upload failed: ${legacyError.message}`);
     }
   }
 
@@ -236,18 +338,25 @@ class BatchProcessor {
    * Direct upload to Google Drive
    */
   async directUploadToGoogleDrive(fileName, buffer) {
-    const { initGoogleDrive, modernUpload } = require('./googleDriveModern');
+    try {
+      // Use dynamic import for ES modules
+      const googleDriveModule = await import('./googleDriveModern.js');
+      const { initGoogleDrive, modernUpload } = googleDriveModule;
 
-    const drive = initGoogleDrive();
-    const result = await modernUpload(
-      drive,
-      fileName,
-      buffer,
-      process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
-    );
+      const drive = initGoogleDrive();
+      const result = await modernUpload(
+        drive,
+        fileName,
+        buffer,
+        process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
+      );
 
-    console.log(`[BATCH] Direct upload successful for: ${fileName}`);
-    return result;
+      console.log(`[BATCH] Direct upload successful for: ${fileName}`);
+      return result;
+    } catch (importError) {
+      console.error(`[BATCH] Failed to import googleDriveModern:`, importError);
+      throw new Error(`Module import failed: ${importError.message}`);
+    }
   }
 
   /**
