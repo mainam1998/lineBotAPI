@@ -53,15 +53,27 @@ export default async function handler(req, res) {
 
   // Process LINE webhook event
   try {
-    const event = req.body.events?.[0];
+    const events = req.body.events || [];
 
-    // If no events or not a message event, return 200 OK
-    if (!event || event.type !== 'message') {
-      console.log('[DEBUG] No events or not a message event');
+    // If no events, return 200 OK
+    if (events.length === 0) {
+      console.log('[DEBUG] No events received');
       return res.status(200).end();
     }
 
-    console.log('[DEBUG] Processing message event:', event.message.type);
+    console.log(`[DEBUG] Processing ${events.length} events`);
+
+    // Process each event
+    for (let i = 0; i < events.length; i++) {
+      const event = events[i];
+
+      // Skip non-message events
+      if (event.type !== 'message') {
+        console.log(`[DEBUG] Event ${i + 1}: Not a message event, skipping`);
+        continue;
+      }
+
+      console.log(`[DEBUG] Event ${i + 1}: Processing message event:`, event.message.type);
 
     // Handle text message (commands)
     if (event.message.type === 'text') {
@@ -81,11 +93,19 @@ export default async function handler(req, res) {
 
 เว็บไซต์: ${webAppUrl}`;
 
-        await lineClient.replyMessage(event.replyToken, {
-          type: 'text',
-          text: helpMessage,
-        });
-        return res.status(200).end();
+        // Only reply to first event, push to others
+        if (i === 0) {
+          await lineClient.replyMessage(event.replyToken, {
+            type: 'text',
+            text: helpMessage,
+          });
+        } else {
+          await lineClient.pushMessage(event.source.userId, {
+            type: 'text',
+            text: helpMessage,
+          });
+        }
+        continue;
       }
 
       if (text === 'status' || text === 'สถานะ') {
@@ -102,10 +122,18 @@ export default async function handler(req, res) {
 
 เว็บไซต์: ${webAppUrl}`;
 
-          await lineClient.replyMessage(event.replyToken, {
-            type: 'text',
-            text: statusMessage,
-          });
+          // Only reply to first event, push to others
+          if (i === 0) {
+            await lineClient.replyMessage(event.replyToken, {
+              type: 'text',
+              text: statusMessage,
+            });
+          } else {
+            await lineClient.pushMessage(event.source.userId, {
+              type: 'text',
+              text: statusMessage,
+            });
+          }
         } catch (error) {
           console.error('[ERROR] Error getting bot info:', error);
           const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
@@ -113,12 +141,20 @@ export default async function handler(req, res) {
 
 เว็บไซต์: ${webAppUrl}`;
 
-          await lineClient.replyMessage(event.replyToken, {
-            type: 'text',
-            text: botErrorMessage,
-          });
+          // Only reply to first event, push to others
+          if (i === 0) {
+            await lineClient.replyMessage(event.replyToken, {
+              type: 'text',
+              text: botErrorMessage,
+            });
+          } else {
+            await lineClient.pushMessage(event.source.userId, {
+              type: 'text',
+              text: botErrorMessage,
+            });
+          }
         }
-        return res.status(200).end();
+        continue;
       }
 
       if (text === 'list' || text === 'รายการ') {
@@ -133,11 +169,19 @@ export default async function handler(req, res) {
 
 เว็บไซต์: ${webAppUrl}`;
 
-            await lineClient.replyMessage(event.replyToken, {
-              type: 'text',
-              text: noFilesMessage,
-            });
-            return res.status(200).end();
+            // Only reply to first event, push to others
+            if (i === 0) {
+              await lineClient.replyMessage(event.replyToken, {
+                type: 'text',
+                text: noFilesMessage,
+              });
+            } else {
+              await lineClient.pushMessage(event.source.userId, {
+                type: 'text',
+                text: noFilesMessage,
+              });
+            }
+            continue;
           }
 
           const fileList = files
@@ -151,10 +195,18 @@ export default async function handler(req, res) {
           const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
           const listMessage = `ไฟล์ล่าสุด (${Math.min(files.length, 10)} จาก ${files.length}):\n${fileList}\n\nเว็บไซต์: ${webAppUrl}`;
 
-          await lineClient.replyMessage(event.replyToken, {
-            type: 'text',
-            text: listMessage,
-          });
+          // Only reply to first event, push to others
+          if (i === 0) {
+            await lineClient.replyMessage(event.replyToken, {
+              type: 'text',
+              text: listMessage,
+            });
+          } else {
+            await lineClient.pushMessage(event.source.userId, {
+              type: 'text',
+              text: listMessage,
+            });
+          }
         } catch (error) {
           console.error('[ERROR] Error listing files:', error);
           const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
@@ -162,12 +214,20 @@ export default async function handler(req, res) {
 
 เว็บไซต์: ${webAppUrl}`;
 
-          await lineClient.replyMessage(event.replyToken, {
-            type: 'text',
-            text: errorMessage,
-          });
+          // Only reply to first event, push to others
+          if (i === 0) {
+            await lineClient.replyMessage(event.replyToken, {
+              type: 'text',
+              text: errorMessage,
+            });
+          } else {
+            await lineClient.pushMessage(event.source.userId, {
+              type: 'text',
+              text: errorMessage,
+            });
+          }
         }
-        return res.status(200).end();
+        continue;
       }
 
       if (text === 'queue' || text === 'คิว' || text === 'สถานะคิว') {
@@ -192,10 +252,18 @@ export default async function handler(req, res) {
 
 เว็บไซต์: ${webAppUrl}`;
 
-          await lineClient.replyMessage(event.replyToken, {
-            type: 'text',
-            text: queueMessage,
-          });
+          // Only reply to first event, push to others
+          if (i === 0) {
+            await lineClient.replyMessage(event.replyToken, {
+              type: 'text',
+              text: queueMessage,
+            });
+          } else {
+            await lineClient.pushMessage(event.source.userId, {
+              type: 'text',
+              text: queueMessage,
+            });
+          }
         } catch (error) {
           console.error('[ERROR] Error getting queue status:', error);
           const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
@@ -203,12 +271,20 @@ export default async function handler(req, res) {
 
 เว็บไซต์: ${webAppUrl}`;
 
-          await lineClient.replyMessage(event.replyToken, {
-            type: 'text',
-            text: errorMessage,
-          });
+          // Only reply to first event, push to others
+          if (i === 0) {
+            await lineClient.replyMessage(event.replyToken, {
+              type: 'text',
+              text: errorMessage,
+            });
+          } else {
+            await lineClient.pushMessage(event.source.userId, {
+              type: 'text',
+              text: errorMessage,
+            });
+          }
         }
-        return res.status(200).end();
+        continue;
       }
     }
 
@@ -251,10 +327,18 @@ export default async function handler(req, res) {
 
 เว็บไซต์: ${webAppUrl}`;
 
-        await lineClient.replyMessage(event.replyToken, {
-          type: 'text',
-          text: immediateMessage,
-        });
+        // Only reply to first event, push to others
+        if (i === 0) {
+          await lineClient.replyMessage(event.replyToken, {
+            type: 'text',
+            text: immediateMessage,
+          });
+        } else {
+          await lineClient.pushMessage(userId, {
+            type: 'text',
+            text: immediateMessage,
+          });
+        }
 
         // Process file in background (don't await)
         setImmediate(async () => {
@@ -316,15 +400,25 @@ export default async function handler(req, res) {
 
 เว็บไซต์: ${webAppUrl}`;
 
-          await lineClient.replyMessage(event.replyToken, {
-            type: 'text',
-            text: errorMessage,
-          });
+          // Only reply to first event, push to others
+          if (i === 0) {
+            await lineClient.replyMessage(event.replyToken, {
+              type: 'text',
+              text: errorMessage,
+            });
+          } else {
+            await lineClient.pushMessage(userId, {
+              type: 'text',
+              text: errorMessage,
+            });
+          }
         } catch (notifyError) {
           console.error('[ERROR] Failed to send error response:', notifyError);
         }
       }
     }
+
+    } // End of for loop
 
     return res.status(200).end();
   } catch (error) {
