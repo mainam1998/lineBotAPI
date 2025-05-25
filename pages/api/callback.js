@@ -340,17 +340,48 @@ export default async function handler(req, res) {
           });
         }
 
-        // Process file in background (don't await)
-        setImmediate(async () => {
+        // Process file in background with delay to avoid rate limiting
+        const processingDelay = i * 2000; // 2 seconds delay per file
+        setTimeout(async () => {
           try {
-            console.log('[BACKGROUND] Starting background file processing for:', fileName);
+            console.log(`[BACKGROUND] Starting background file processing for: ${fileName} (delay: ${processingDelay}ms)`);
 
-            // Get file content from LINE
-            console.log('[BACKGROUND] Getting file content from LINE, message ID:', messageId);
-            const stream = await lineClient.getMessageContent(messageId);
+            // Add retry mechanism for downloading file from LINE
+            let stream = null;
+            let retryCount = 0;
+            const maxRetries = 3;
 
-            if (!stream) {
-              throw new Error('Received empty stream from LINE');
+            while (retryCount < maxRetries && !stream) {
+              try {
+                console.log(`[BACKGROUND] Getting file content from LINE, message ID: ${messageId} (attempt ${retryCount + 1}/${maxRetries})`);
+
+                // Add timeout for LINE API call
+                const downloadPromise = lineClient.getMessageContent(messageId);
+                const timeoutPromise = new Promise((_, reject) => {
+                  setTimeout(() => reject(new Error('Download timeout after 30 seconds')), 30000);
+                });
+
+                stream = await Promise.race([downloadPromise, timeoutPromise]);
+
+                if (!stream) {
+                  throw new Error('Received empty stream from LINE');
+                }
+
+                console.log(`[BACKGROUND] File content stream received successfully for: ${fileName}`);
+                break;
+
+              } catch (downloadError) {
+                retryCount++;
+                console.error(`[BACKGROUND] Download attempt ${retryCount} failed for ${fileName}:`, downloadError.message);
+
+                if (retryCount < maxRetries) {
+                  const retryDelay = retryCount * 3000; // Exponential backoff: 3s, 6s, 9s
+                  console.log(`[BACKGROUND] Retrying download in ${retryDelay}ms...`);
+                  await new Promise(resolve => setTimeout(resolve, retryDelay));
+                } else {
+                  throw new Error(`Failed to download file after ${maxRetries} attempts: ${downloadError.message}`);
+                }
+              }
             }
 
             // Convert stream to buffer
@@ -375,6 +406,7 @@ export default async function handler(req, res) {
             // Notify user about error
             try {
               const errorMessage = `เกิดข้อผิดพลาดในการประมวลผลไฟล์: ${fileName}
+เหตุผล: ${backgroundError.message}
 
 กรุณาลองส่งไฟล์ใหม่อีกครั้ง
 
@@ -388,7 +420,7 @@ export default async function handler(req, res) {
               console.error('[BACKGROUND] Failed to notify user about background error:', notifyError);
             }
           }
-        });
+        }, processingDelay);
 
       } catch (error) {
         console.error('[ERROR] Error in immediate response:', error);

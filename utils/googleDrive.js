@@ -17,16 +17,55 @@ export const initGoogleDrive = () => {
 };
 
 /**
- * Convert stream to buffer
+ * Convert stream to buffer with timeout
  * @param {import('stream').Readable} stream - Readable stream
+ * @param {number} timeoutMs - Timeout in milliseconds (default: 60 seconds)
  * @returns {Promise<Buffer>} Buffer containing stream data
  */
-export const streamToBuffer = async (stream) => {
+export const streamToBuffer = async (stream, timeoutMs = 60000) => {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    stream.on('data', (chunk) => chunks.push(chunk));
-    stream.on('error', reject);
-    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    let isResolved = false;
+
+    // Set timeout
+    const timeout = setTimeout(() => {
+      if (!isResolved) {
+        isResolved = true;
+        stream.destroy();
+        reject(new Error(`Stream to buffer conversion timeout after ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
+
+    stream.on('data', (chunk) => {
+      if (!isResolved) {
+        chunks.push(chunk);
+      }
+    });
+
+    stream.on('error', (error) => {
+      if (!isResolved) {
+        isResolved = true;
+        clearTimeout(timeout);
+        reject(error);
+      }
+    });
+
+    stream.on('end', () => {
+      if (!isResolved) {
+        isResolved = true;
+        clearTimeout(timeout);
+        resolve(Buffer.concat(chunks));
+      }
+    });
+
+    // Handle stream close event
+    stream.on('close', () => {
+      if (!isResolved) {
+        isResolved = true;
+        clearTimeout(timeout);
+        resolve(Buffer.concat(chunks));
+      }
+    });
   });
 };
 
@@ -79,8 +118,8 @@ export const resumableUpload = async (drive, fileName, buffer, folderId) => {
 
     console.log('[DEBUG] Uploading file with MIME type:', mimeType);
 
-    // Upload file to Google Drive
-    const res = await drive.files.create({
+    // Upload file to Google Drive with timeout and retry
+    const uploadPromise = drive.files.create({
       requestBody: {
         name: fileName,
         parents: [folderId || 'root'],
@@ -92,14 +131,21 @@ export const resumableUpload = async (drive, fileName, buffer, folderId) => {
       fields: 'id,name,webViewLink,mimeType',
     }, {
       // Set a longer timeout
-      timeout: 60000,
+      timeout: 120000, // 2 minutes
       // Increase retry count
       retry: true,
       retryConfig: {
         retries: 3,
-        retryDelay: 1000,
+        retryDelay: 2000,
       }
     });
+
+    // Add overall timeout for the upload
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Google Drive upload timeout after 3 minutes')), 3 * 60 * 1000);
+    });
+
+    const res = await Promise.race([uploadPromise, timeoutPromise]);
 
     console.log('[DEBUG] Upload successful, file ID:', res.data.id);
     return res.data;
