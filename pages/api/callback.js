@@ -63,17 +63,23 @@ export default async function handler(req, res) {
 
     console.log(`[DEBUG] Processing ${events.length} events`);
 
-    // Process each event
-    for (let i = 0; i < events.length; i++) {
-      const event = events[i];
+    // Count file messages first
+    const fileEvents = events.filter(event =>
+      event.type === 'message' &&
+      ['image', 'video', 'audio', 'file'].includes(event.message.type)
+    );
 
-      // Skip non-message events
-      if (event.type !== 'message') {
-        console.log(`[DEBUG] Event ${i + 1}: Not a message event, skipping`);
-        continue;
-      }
+    const textEvents = events.filter(event =>
+      event.type === 'message' &&
+      event.message.type === 'text'
+    );
 
-      console.log(`[DEBUG] Event ${i + 1}: Processing message event:`, event.message.type);
+    console.log(`[DEBUG] Processing ${events.length} events: ${fileEvents.length} files, ${textEvents.length} text messages`);
+
+    // Handle text messages first
+    for (let i = 0; i < textEvents.length; i++) {
+      const event = textEvents[i];
+      console.log(`[DEBUG] Text Event ${i + 1}: Processing text message`);
 
     // Handle text message (commands)
     if (event.message.type === 'text') {
@@ -288,81 +294,98 @@ export default async function handler(req, res) {
       }
     }
 
-    // Handle file, image, video, or audio message
-    if (['file', 'image', 'video', 'audio'].includes(event.message.type)) {
-      // Generate filename based on message type
-      let fileName;
-      let fileExtension;
+    } // End of text events loop
 
-      switch (event.message.type) {
-        case 'file':
-          fileName = event.message.fileName;
-          break;
-        case 'image':
-          fileExtension = '.jpg';
-          fileName = `image_${event.message.id}${fileExtension}`;
-          break;
-        case 'video':
-          fileExtension = '.mp4';
-          fileName = `video_${event.message.id}${fileExtension}`;
-          break;
-        case 'audio':
-          fileExtension = '.m4a';
-          fileName = `audio_${event.message.id}${fileExtension}`;
-          break;
-        default:
-          fileName = `file_${event.message.id}`;
-      }
-      console.log('[DEBUG] Handling message type:', event.message.type, 'with filename:', fileName);
+    // Handle file messages with summary response
+    if (fileEvents.length > 0) {
+      console.log(`[DEBUG] Processing ${fileEvents.length} file events`);
 
-      try {
+      const userId = fileEvents[0].source.userId;
+      const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+
+      // Send single summary response for all files
+      const summaryMessage = `📁 กำลังประมวลผลไฟล์ ${fileEvents.length} ไฟล์
+
+📊 สถานะ:
+• รับไฟล์แล้ว: ${fileEvents.length} ไฟล์
+• กำลังดาวน์โหลด: ${fileEvents.length} ไฟล์
+• รออัพโหลด: 0 ไฟล์
+
+⏳ ระบบจะแจ้งเมื่ออัพโหลดเสร็จทีละไฟล์
+
+🌐 เว็บไซต์: ${webAppUrl}`;
+
+      await lineClient.replyMessage(fileEvents[0].replyToken, {
+        type: 'text',
+        text: summaryMessage,
+      });
+
+      // Process each file in background
+      for (let i = 0; i < fileEvents.length; i++) {
+        const event = fileEvents[i];
         const userId = event.source.userId;
         const messageId = event.message.id;
 
-        // Send immediate response to avoid webhook timeout
-        const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
-        const immediateMessage = `กำลังประมวลผลไฟล์: ${fileName}
+        // Generate filename based on message type
+        let fileName;
+        let fileExtension;
 
-ระบบจะแจ้งเมื่ออัพโหลดเสร็จ
-
-เว็บไซต์: ${webAppUrl}`;
-
-        // Only reply to first event, push to others
-        if (i === 0) {
-          await lineClient.replyMessage(event.replyToken, {
-            type: 'text',
-            text: immediateMessage,
-          });
-        } else {
-          await lineClient.pushMessage(userId, {
-            type: 'text',
-            text: immediateMessage,
-          });
+        switch (event.message.type) {
+          case 'file':
+            fileName = event.message.fileName;
+            break;
+          case 'image':
+            fileExtension = '.jpg';
+            fileName = `image_${event.message.id}${fileExtension}`;
+            break;
+          case 'video':
+            fileExtension = '.mp4';
+            fileName = `video_${event.message.id}${fileExtension}`;
+            break;
+          case 'audio':
+            fileExtension = '.m4a';
+            fileName = `audio_${event.message.id}${fileExtension}`;
+            break;
+          default:
+            fileName = `file_${event.message.id}`;
         }
 
-        // Process file in background with delay to avoid rate limiting
-        const processingDelay = i * 3000; // 3 seconds delay per file (increased for TLS stability)
-        setTimeout(async () => {
-          try {
-            console.log(`[BACKGROUND] Starting background file processing for: ${fileName} (delay: ${processingDelay}ms)`);
+        console.log(`[DEBUG] File Event ${i + 1}: Handling ${event.message.type} with filename: ${fileName}`);
 
-            // Add retry mechanism for downloading file from LINE
+        // Process file in background - use immediate processing for better performance
+        setImmediate(async () => {
+          try {
+            console.log(`[BACKGROUND] Starting background file processing for: ${fileName} (file ${i + 1}/${events.length})`);
+
+            // Quick download with smart timeout based on file type
             let stream = null;
             let retryCount = 0;
-            const maxRetries = 3;
+            const maxRetries = 2; // Reduce retries for faster processing
+
+            // Smart timeout based on file type
+            const getSmartTimeout = (messageType) => {
+              switch (messageType) {
+                case 'image': return 15000; // 15s for images
+                case 'video': return 30000; // 30s for videos
+                case 'audio': return 25000; // 25s for audio
+                default: return 20000; // 20s for other files
+              }
+            };
+
+            const smartTimeout = getSmartTimeout(event.message.type);
 
             while (retryCount < maxRetries && !stream) {
               try {
-                console.log(`[BACKGROUND] Getting file content from LINE, message ID: ${messageId} (attempt ${retryCount + 1}/${maxRetries})`);
+                console.log(`[BACKGROUND] Getting file content from LINE, message ID: ${messageId} (attempt ${retryCount + 1}/${maxRetries}, timeout: ${smartTimeout}ms)`);
 
-                // Create new LINE client instance for each retry to avoid connection issues
+                // Create new LINE client instance for each retry
                 const { initLineClient } = require('../../utils/lineClient');
                 const freshLineClient = initLineClient();
 
-                // Add timeout for LINE API call with longer timeout for TLS issues
+                // Smart timeout based on file type
                 const downloadPromise = freshLineClient.getMessageContent(messageId);
                 const timeoutPromise = new Promise((_, reject) => {
-                  setTimeout(() => reject(new Error('Download timeout after 45 seconds')), 45000);
+                  setTimeout(() => reject(new Error(`Download timeout after ${smartTimeout/1000} seconds`)), smartTimeout);
                 });
 
                 stream = await Promise.race([downloadPromise, timeoutPromise]);
@@ -379,11 +402,8 @@ export default async function handler(req, res) {
                 console.error(`[BACKGROUND] Download attempt ${retryCount} failed for ${fileName}:`, downloadError.message);
 
                 if (retryCount < maxRetries) {
-                  // Progressive backoff with jitter to avoid thundering herd
-                  const baseDelay = retryCount * 5000; // 5s, 10s, 15s
-                  const jitter = Math.random() * 2000; // Add 0-2s random delay
-                  const retryDelay = baseDelay + jitter;
-
+                  // Quick retry with shorter delay
+                  const retryDelay = 2000 + (Math.random() * 1000); // 2-3s random delay
                   console.log(`[BACKGROUND] Retrying download in ${Math.round(retryDelay)}ms...`);
                   await new Promise(resolve => setTimeout(resolve, retryDelay));
                 } else {
@@ -392,12 +412,12 @@ export default async function handler(req, res) {
               }
             }
 
-            // Convert stream to buffer
+            // Convert stream to buffer with timeout
             console.log('[BACKGROUND] Converting stream to buffer');
-            const buffer = await streamToBuffer(stream);
+            const buffer = await streamToBuffer(stream, 30000); // 30s timeout for buffer conversion
             console.log('[BACKGROUND] Stream converted to buffer successfully, size:', (buffer.length / (1024 * 1024)).toFixed(2), 'MB');
 
-            // Add file to upload queue
+            // Add file to upload queue immediately
             console.log('[BACKGROUND] Adding file to upload queue');
             const queueId = uploadQueue.addToQueue(userId, {
               fileName,
@@ -411,14 +431,27 @@ export default async function handler(req, res) {
           } catch (backgroundError) {
             console.error('[BACKGROUND] Error in background processing:', backgroundError);
 
-            // Notify user about error
+            // Notify user about error with more specific message
             try {
-              const errorMessage = `เกิดข้อผิดพลาดในการประมวลผลไฟล์: ${fileName}
-เหตุผล: ${backgroundError.message}
+              let errorType = 'ไม่ทราบสาเหตุ';
+              if (backgroundError.message.includes('timeout')) {
+                errorType = 'หมดเวลาในการดาวน์โหลด (ไฟล์อาจใหญ่เกินไป)';
+              } else if (backgroundError.message.includes('socket')) {
+                errorType = 'ปัญหาการเชื่อมต่อเครือข่าย';
+              } else if (backgroundError.message.includes('stream')) {
+                errorType = 'ปัญหาในการประมวลผลไฟล์';
+              }
 
-กรุณาลองส่งไฟล์ใหม่อีกครั้ง
+              const errorMessage = `❌ ประมวลผลไฟล์ล้มเหลว: ${fileName}
 
-เว็บไซต์: ${webAppUrl}`;
+🔍 สาเหตุ: ${errorType}
+
+💡 แนะนำ:
+- ลองส่งไฟล์ใหม่อีกครั้ง
+- หากไฟล์ใหญ่ ลองย่อขนาดก่อนส่ง
+- ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต
+
+🌐 เว็บไซต์: ${webAppUrl}`;
 
               await lineClient.pushMessage(userId, {
                 type: 'text',
@@ -428,37 +461,9 @@ export default async function handler(req, res) {
               console.error('[BACKGROUND] Failed to notify user about background error:', notifyError);
             }
           }
-        }, processingDelay);
-
-      } catch (error) {
-        console.error('[ERROR] Error in immediate response:', error);
-
-        // Try to send error response
-        try {
-          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
-          const errorMessage = `เกิดข้อผิดพลาดในการรับไฟล์ กรุณาลองใหม่อีกครั้ง
-
-เว็บไซต์: ${webAppUrl}`;
-
-          // Only reply to first event, push to others
-          if (i === 0) {
-            await lineClient.replyMessage(event.replyToken, {
-              type: 'text',
-              text: errorMessage,
-            });
-          } else {
-            await lineClient.pushMessage(userId, {
-              type: 'text',
-              text: errorMessage,
-            });
-          }
-        } catch (notifyError) {
-          console.error('[ERROR] Failed to send error response:', notifyError);
-        }
-      }
-    }
-
-    } // End of for loop
+        });
+      } // End of file processing loop
+    } // End of file events handling
 
     return res.status(200).end();
   } catch (error) {

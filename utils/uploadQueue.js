@@ -134,9 +134,9 @@ class UploadQueue {
         }
       }
 
-      // Add delay between uploads to avoid rate limiting
-      console.log('[QUEUE] Waiting 2 seconds before next upload...');
-      await this.delay(2000);
+      // Add shorter delay between uploads for faster processing
+      console.log('[QUEUE] Waiting 1 second before next upload...');
+      await this.delay(1000);
 
       // Log current queue status
       console.log(`[QUEUE] Current queue status after processing ${item.fileName}:`);
@@ -168,8 +168,12 @@ class UploadQueue {
         process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
       );
 
+      // Add smart timeout based on file size
+      const fileSizeInMB = item.buffer.length / (1024 * 1024);
+      const smartUploadTimeout = Math.max(60000, fileSizeInMB * 10000); // Min 1 min, +10s per MB
+
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Upload timeout after 5 minutes')), 5 * 60 * 1000);
+        setTimeout(() => reject(new Error(`Google Drive upload timeout after ${Math.round(smartUploadTimeout/1000)} seconds`)), smartUploadTimeout);
       });
 
       const result = await Promise.race([uploadPromise, timeoutPromise]);
