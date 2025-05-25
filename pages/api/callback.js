@@ -1,5 +1,6 @@
 import { initLineClient, verifySignature } from '../../utils/lineClient';
 import { initGoogleDrive, streamToBuffer, resumableUpload, listFiles } from '../../utils/googleDrive';
+import uploadQueue from '../../utils/uploadQueue';
 
 // ตัดฟังก์ชันที่ไม่ได้ใช้แล้วออก
 
@@ -75,7 +76,8 @@ export default async function handler(req, res) {
 - help หรือ ช่วยเหลือ: แสดงคำสั่งที่ใช้ได้
 - status หรือ สถานะ: แสดงสถานะของบอท
 - list หรือ รายการ: แสดงรายการไฟล์ล่าสุด
-- ส่งไฟล์มาเพื่ออัปโหลดไปยัง Google Drive
+- queue หรือ คิว หรือ สถานะคิว: แสดงสถานะคิวอัพโหลด
+- ส่งไฟล์มาเพื่ออัปโหลดไปยัง Google Drive (รองรับหลายไฟล์พร้อมกัน)
 
 เว็บไซต์: ${webAppUrl}`;
 
@@ -167,6 +169,47 @@ export default async function handler(req, res) {
         }
         return res.status(200).end();
       }
+
+      if (text === 'queue' || text === 'คิว' || text === 'สถานะคิว') {
+        console.log('[DEBUG] Processing queue status command');
+        try {
+          const userId = event.source.userId;
+          const userQueueStatus = uploadQueue.getUserQueueStatus(userId);
+          const globalStats = uploadQueue.getQueueStats();
+
+          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          let queueMessage = `สถานะคิวอัพโหลด:
+
+ของคุณ:
+- รอดำเนินการ: ${userQueueStatus.pending} ไฟล์
+- กำลังอัพโหลด: ${userQueueStatus.processing} ไฟล์
+- สำเร็จแล้ว: ${userQueueStatus.completed} ไฟล์
+- ล้มเหลว: ${userQueueStatus.failed} ไฟล์
+
+ระบบทั้งหมด:
+- คิวทั้งหมด: ${globalStats.total} ไฟล์
+- กำลังประมวลผล: ${globalStats.isProcessing ? 'ใช่' : 'ไม่'}
+
+เว็บไซต์: ${webAppUrl}`;
+
+          await lineClient.replyMessage(event.replyToken, {
+            type: 'text',
+            text: queueMessage,
+          });
+        } catch (error) {
+          console.error('[ERROR] Error getting queue status:', error);
+          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const errorMessage = `เกิดข้อผิดพลาดในการดึงสถานะคิว กรุณาลองใหม่อีกครั้ง
+
+เว็บไซต์: ${webAppUrl}`;
+
+          await lineClient.replyMessage(event.replyToken, {
+            type: 'text',
+            text: errorMessage,
+          });
+        }
+        return res.status(200).end();
+      }
     }
 
     // Handle file, image, video, or audio message
@@ -197,11 +240,6 @@ export default async function handler(req, res) {
       console.log('[DEBUG] Handling message type:', event.message.type, 'with filename:', fileName);
 
       try {
-        // Initialize Google Drive client
-        console.log('[DEBUG] Initializing Google Drive client');
-        const drive = initGoogleDrive();
-        console.log('[DEBUG] Google Drive client initialized');
-
         // Get file content from LINE
         console.log('[DEBUG] Getting file content from LINE, message ID:', event.message.id);
         let stream;
@@ -228,48 +266,48 @@ export default async function handler(req, res) {
           console.error('[ERROR] Failed to convert stream to buffer:', bufferError);
           throw new Error(`Failed to process file: ${bufferError.message}`);
         }
-        // ตัดการส่งข้อความตอบกลับเริ่มต้นออก
-        console.log('[DEBUG] Skipping initial response to user');
 
-        // Upload file to Google Drive using resumable upload for better handling of large files
-        console.log('[DEBUG] Starting file upload to Google Drive');
-        let uploadResult;
-        try {
-          uploadResult = await resumableUpload(
-            drive,
-            fileName,
-            buffer,
-            process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
-          );
-          console.log('[DEBUG] File uploaded successfully, result:', uploadResult);
-        } catch (uploadError) {
-          console.error('[ERROR] Failed to upload file to Google Drive:', uploadError);
-          throw new Error(`Failed to upload file: ${uploadError.message}`);
-        }
+        // Add file to upload queue instead of uploading immediately
+        console.log('[DEBUG] Adding file to upload queue');
+        const userId = event.source.userId;
+        const queueId = uploadQueue.addToQueue(userId, {
+          fileName,
+          buffer,
+          messageId: event.message.id,
+          messageType: event.message.type
+        });
 
-        // สร้างข้อความตอบกลับหลังอัพโหลดสำเร็จ
+        console.log(`[DEBUG] File added to queue with ID: ${queueId}`);
+
+        // Get current queue status for user
+        const userQueueStatus = uploadQueue.getUserQueueStatus(userId);
+
+        // Send immediate confirmation with queue status
         const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
-        const successMessage = `อัพโหลดสำเร็จ
+        const queueMessage = `ไฟล์ถูกเพิ่มในคิวแล้ว: ${fileName}
 
-ไฟล์: ${uploadResult.webViewLink || 'ไม่สามารถสร้างลิงก์ได้'}
+สถานะคิวของคุณ:
+- รอดำเนินการ: ${userQueueStatus.pending} ไฟล์
+- กำลังอัพโหลด: ${userQueueStatus.processing} ไฟล์
 
 เว็บไซต์: ${webAppUrl}`;
 
-        await lineClient.pushMessage(event.source.userId, {
+        await lineClient.replyMessage(event.replyToken, {
           type: 'text',
-          text: successMessage,
+          text: queueMessage,
         });
+
       } catch (error) {
         console.error('[ERROR] Error handling file message:', error);
 
         // Try to notify user about error
         try {
           const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
-          const errorMessage = `เกิดข้อผิดพลาดในการอัพโหลดไฟล์ กรุณาลองใหม่อีกครั้ง
+          const errorMessage = `เกิดข้อผิดพลาดในการเพิ่มไฟล์ในคิว กรุณาลองใหม่อีกครั้ง
 
 เว็บไซต์: ${webAppUrl}`;
 
-          await lineClient.pushMessage(event.source.userId, {
+          await lineClient.replyMessage(event.replyToken, {
             type: 'text',
             text: errorMessage,
           });

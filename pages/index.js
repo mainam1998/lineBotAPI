@@ -12,6 +12,7 @@ export default function Home() {
   const [dashboardWarning, setDashboardWarning] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchCategory, setSearchCategory] = useState('all');
+  const [queueStatus, setQueueStatus] = useState(null);
 
   const runTest = async (endpoint) => {
     setIsLoading(true);
@@ -53,10 +54,26 @@ export default function Home() {
     }
   };
 
+  const fetchQueueStatus = async () => {
+    try {
+      const response = await fetch('/api/queue-status');
+      const data = await response.json();
+      if (data.status === 'ok') {
+        setQueueStatus(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching queue status:', err);
+    }
+  };
+
   useEffect(() => {
     fetchFiles();
+    fetchQueueStatus();
     // ตั้งเวลาดึงข้อมูลใหม่ทุก 1 นาที
-    const interval = setInterval(fetchFiles, 60000);
+    const interval = setInterval(() => {
+      fetchFiles();
+      fetchQueueStatus();
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
   // ฟังก์ชันกำหนดสีตามประเภทไฟล์
@@ -170,11 +187,30 @@ export default function Home() {
                   <span className={styles.statusDot}></span>
                   บอทพร้อมรับข้อความแล้ว
                 </p>
+                {queueStatus && (
+                  <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#150259', borderRadius: '6px' }}>
+                    <p style={{ color: '#fff', margin: '0 0 0.5rem 0', fontWeight: '600' }}>สถานะคิวอัพโหลด:</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem', fontSize: '0.9rem' }}>
+                      <div style={{ color: '#4630D9' }}>รอดำเนินการ: {queueStatus.stats.pending}</div>
+                      <div style={{ color: '#4630D9' }}>กำลังอัพโหลด: {queueStatus.stats.processing}</div>
+                      <div style={{ color: '#4630D9' }}>สำเร็จแล้ว: {queueStatus.stats.completed}</div>
+                      <div style={{ color: '#4630D9' }}>ล้มเหลว: {queueStatus.stats.failed}</div>
+                    </div>
+                    {queueStatus.recentActivity.totalProcessed > 0 && (
+                      <p style={{ color: '#4630D9', margin: '0.5rem 0 0 0', fontSize: '0.85rem' }}>
+                        อัตราความสำเร็จ: {queueStatus.recentActivity.successRate}%
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <button
                   className={styles.refreshButton}
-                  onClick={() => fetchFiles()}
+                  onClick={() => {
+                    fetchFiles();
+                    fetchQueueStatus();
+                  }}
                 >
                   🔄 รีเฟรช
                 </button>
@@ -343,6 +379,13 @@ export default function Home() {
                 onClick={() => runTest('drive-test')}
               >
                 <span>📂</span> ทดสอบ Google Drive API
+              </button>
+
+              <button
+                className={styles.button}
+                onClick={() => runTest('queue-status')}
+              >
+                <span>📋</span> ทดสอบ Queue System
               </button>
             </div>
 
