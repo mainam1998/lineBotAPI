@@ -240,92 +240,79 @@ export default async function handler(req, res) {
       console.log('[DEBUG] Handling message type:', event.message.type, 'with filename:', fileName);
 
       try {
-        // Get file content from LINE
-        console.log('[DEBUG] Getting file content from LINE, message ID:', event.message.id);
-        let stream;
-        try {
-          stream = await lineClient.getMessageContent(event.message.id);
-          console.log('[DEBUG] File content stream received');
-
-          // Check if stream is valid
-          if (!stream) {
-            throw new Error('Received empty stream from LINE');
-          }
-        } catch (streamError) {
-          console.error('[ERROR] Failed to get file content from LINE:', streamError);
-          throw new Error(`Failed to get file content: ${streamError.message}`);
-        }
-
-        // Convert stream to buffer for better handling
-        console.log('[DEBUG] Converting stream to buffer');
-        let buffer;
-        try {
-          buffer = await streamToBuffer(stream);
-          console.log('[DEBUG] Stream converted to buffer successfully, size:', (buffer.length / (1024 * 1024)).toFixed(2), 'MB');
-        } catch (bufferError) {
-          console.error('[ERROR] Failed to convert stream to buffer:', bufferError);
-          throw new Error(`Failed to process file: ${bufferError.message}`);
-        }
-
-        // Add file to upload queue instead of uploading immediately
-        console.log('[DEBUG] Adding file to upload queue');
         const userId = event.source.userId;
-        const queueId = uploadQueue.addToQueue(userId, {
-          fileName,
-          buffer,
-          messageId: event.message.id,
-          messageType: event.message.type
+        const messageId = event.message.id;
+
+        // Send immediate response to avoid webhook timeout
+        const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+        const immediateMessage = `กำลังประมวลผลไฟล์: ${fileName}
+
+ระบบจะแจ้งเมื่ออัพโหลดเสร็จ
+
+เว็บไซต์: ${webAppUrl}`;
+
+        await lineClient.replyMessage(event.replyToken, {
+          type: 'text',
+          text: immediateMessage,
         });
 
-        console.log(`[DEBUG] File added to queue with ID: ${queueId}`);
+        // Process file in background (don't await)
+        setImmediate(async () => {
+          try {
+            console.log('[BACKGROUND] Starting background file processing for:', fileName);
 
-        // Get current queue status for user
-        const userQueueStatus = uploadQueue.getUserQueueStatus(userId);
+            // Get file content from LINE
+            console.log('[BACKGROUND] Getting file content from LINE, message ID:', messageId);
+            const stream = await lineClient.getMessageContent(messageId);
 
-        // Send immediate confirmation with queue status (only for first file to avoid multiple replies)
-        const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+            if (!stream) {
+              throw new Error('Received empty stream from LINE');
+            }
 
-        // Check if this is the first file from this user in recent time (within 5 seconds)
-        const recentFiles = uploadQueue.queue.filter(item =>
-          item.userId === userId &&
-          (Date.now() - item.addedAt.getTime()) < 5000
-        );
+            // Convert stream to buffer
+            console.log('[BACKGROUND] Converting stream to buffer');
+            const buffer = await streamToBuffer(stream);
+            console.log('[BACKGROUND] Stream converted to buffer successfully, size:', (buffer.length / (1024 * 1024)).toFixed(2), 'MB');
 
-        if (recentFiles.length === 1) {
-          // This is the first file, send reply
-          const queueMessage = `ไฟล์ถูกเพิ่มในคิวแล้ว: ${fileName}
+            // Add file to upload queue
+            console.log('[BACKGROUND] Adding file to upload queue');
+            const queueId = uploadQueue.addToQueue(userId, {
+              fileName,
+              buffer,
+              messageId,
+              messageType: event.message.type
+            });
 
-สถานะคิวของคุณ:
-- รอดำเนินการ: ${userQueueStatus.pending} ไฟล์
-- กำลังอัพโหลด: ${userQueueStatus.processing} ไฟล์
+            console.log(`[BACKGROUND] File added to queue with ID: ${queueId}`);
+
+          } catch (backgroundError) {
+            console.error('[BACKGROUND] Error in background processing:', backgroundError);
+
+            // Notify user about error
+            try {
+              const errorMessage = `เกิดข้อผิดพลาดในการประมวลผลไฟล์: ${fileName}
+
+กรุณาลองส่งไฟล์ใหม่อีกครั้ง
 
 เว็บไซต์: ${webAppUrl}`;
 
-          await lineClient.replyMessage(event.replyToken, {
-            type: 'text',
-            text: queueMessage,
-          });
-        } else {
-          // This is additional file, send push message instead
-          const queueMessage = `ไฟล์เพิ่มเติมถูกเพิ่มในคิว: ${fileName}
-
-รวมไฟล์ในคิว: ${userQueueStatus.pending} ไฟล์
-
-เว็บไซต์: ${webAppUrl}`;
-
-          await lineClient.pushMessage(userId, {
-            type: 'text',
-            text: queueMessage,
-          });
-        }
+              await lineClient.pushMessage(userId, {
+                type: 'text',
+                text: errorMessage,
+              });
+            } catch (notifyError) {
+              console.error('[BACKGROUND] Failed to notify user about background error:', notifyError);
+            }
+          }
+        });
 
       } catch (error) {
-        console.error('[ERROR] Error handling file message:', error);
+        console.error('[ERROR] Error in immediate response:', error);
 
-        // Try to notify user about error
+        // Try to send error response
         try {
           const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
-          const errorMessage = `เกิดข้อผิดพลาดในการเพิ่มไฟล์ในคิว กรุณาลองใหม่อีกครั้ง
+          const errorMessage = `เกิดข้อผิดพลาดในการรับไฟล์ กรุณาลองใหม่อีกครั้ง
 
 เว็บไซต์: ${webAppUrl}`;
 
@@ -334,7 +321,7 @@ export default async function handler(req, res) {
             text: errorMessage,
           });
         } catch (notifyError) {
-          console.error('[ERROR] Failed to notify user about error:', notifyError);
+          console.error('[ERROR] Failed to send error response:', notifyError);
         }
       }
     }

@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
   try {
     const globalStats = uploadQueue.getQueueStats();
-    
+
     // Get detailed queue information for debugging
     const debugInfo = {
       stats: globalStats,
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
         addedAt: item.addedAt,
         completedAt: item.completedAt,
         error: item.error,
-        bufferSize: item.buffer ? `${(item.buffer.length / (1024 * 1024)).toFixed(2)} MB` : 'No buffer'
+        bufferSize: item.buffer ? `${(item.buffer.length / (1024 * 1024)).toFixed(2)} MB` : 'Buffer cleared'
       })),
       userQueues: Array.from(uploadQueue.userQueues.entries()).map(([userId, fileIds]) => ({
         userId,

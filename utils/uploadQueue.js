@@ -26,13 +26,26 @@ class UploadQueue {
     }
     this.userQueues.get(userId).push(queueItem.id);
 
-    console.log(`[QUEUE] Added file to queue: ${queueItem.fileName} for user ${userId}`);
+    console.log(`[QUEUE] Added file to queue: ${queueItem.fileName} for user ${userId} (buffer size: ${(queueItem.buffer.length / (1024 * 1024)).toFixed(2)} MB)`);
     console.log(`[QUEUE] Queue length: ${this.queue.length}`);
 
-    // Start processing if not already processing
+    // Start processing immediately if not already processing
     if (!this.processing) {
-      this.processQueue();
+      // Use setImmediate to start processing in next tick
+      setImmediate(() => {
+        this.processQueue();
+      });
     }
+
+    // Send queue status update to user
+    setImmediate(async () => {
+      try {
+        const userQueueStatus = this.getUserQueueStatus(userId);
+        await this.sendQueueStatusUpdate(userId, userQueueStatus);
+      } catch (error) {
+        console.error('[QUEUE] Failed to send queue status update:', error);
+      }
+    });
 
     return queueItem.id;
   }
@@ -94,6 +107,9 @@ class UploadQueue {
         item.result = result;
         item.completedAt = new Date();
 
+        // Clear buffer to free memory
+        item.buffer = null;
+
         console.log(`[QUEUE] Successfully uploaded: ${item.fileName}`);
 
         // Notify user of success
@@ -106,6 +122,8 @@ class UploadQueue {
 
         if (item.attempts >= item.maxAttempts) {
           item.status = 'failed';
+          // Clear buffer to free memory
+          item.buffer = null;
           console.log(`[QUEUE] Max attempts reached for ${item.fileName}, marking as failed`);
 
           // Notify user of failure
@@ -194,6 +212,34 @@ class UploadQueue {
       }
     } catch (error) {
       console.error('[QUEUE] Failed to notify user:', error);
+    }
+  }
+
+  // Send queue status update to user
+  async sendQueueStatusUpdate(userId, userQueueStatus) {
+    try {
+      const { initLineClient } = require('./lineClient');
+      const lineClient = initLineClient();
+
+      const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+
+      if (userQueueStatus.total > 1) {
+        const message = `สถานะคิวอัพโหลด:
+
+รวมไฟล์: ${userQueueStatus.total} ไฟล์
+- รอดำเนินการ: ${userQueueStatus.pending} ไฟล์
+- กำลังอัพโหลด: ${userQueueStatus.processing} ไฟล์
+- สำเร็จแล้ว: ${userQueueStatus.completed} ไฟล์
+
+เว็บไซต์: ${webAppUrl}`;
+
+        await lineClient.pushMessage(userId, {
+          type: 'text',
+          text: message,
+        });
+      }
+    } catch (error) {
+      console.error('[QUEUE] Failed to send queue status update:', error);
     }
   }
 
