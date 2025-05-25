@@ -1,5 +1,5 @@
 import { initLineClient, verifySignature } from '../../utils/lineClient';
-import { initGoogleDrive, streamToBuffer, resumableUpload, listFiles } from '../../utils/googleDrive';
+import { initGoogleDrive, streamToBuffer, modernUpload, listFiles } from '../../utils/googleDriveModern';
 import uploadQueue from '../../utils/uploadQueue';
 
 // ตัดฟังก์ชันที่ไม่ได้ใช้แล้วออก

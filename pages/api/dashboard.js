@@ -1,4 +1,4 @@
-import { initGoogleDrive, listFiles } from '../../utils/googleDrive';
+import { initGoogleDrive, listFiles } from '../../utils/googleDriveModern';
 
 export default async function handler(req, res) {
   // Only allow GET requests
