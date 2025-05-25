@@ -391,9 +391,9 @@ export default async function handler(req, res) {
               }
             }
 
-            // Convert stream to buffer
+            // Convert stream to buffer with longer timeout
             console.log(`[SIMPLE] Converting stream to buffer for: ${fileName}`);
-            const buffer = await streamToBuffer(stream, 30000);
+            const buffer = await streamToBuffer(stream, 60000); // Increased to 60 seconds
             console.log(`[SIMPLE] Buffer ready, size: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB`);
 
             // Add to upload queue with simple callback

@@ -23,7 +23,7 @@ export const initGoogleDrive = () => {
 };
 
 /**
- * Convert stream to buffer with timeout and error handling
+ * Convert stream to buffer with enhanced timeout and error handling
  * @param {import('stream').Readable} stream - Readable stream
  * @param {number} timeoutMs - Timeout in milliseconds (default: 60 seconds)
  * @returns {Promise<Buffer>} Buffer containing stream data
@@ -32,19 +32,49 @@ export const streamToBuffer = async (stream, timeoutMs = 60000) => {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let isResolved = false;
+    let bytesReceived = 0;
 
-    // Set timeout
+    console.log(`[STREAM] Starting stream to buffer conversion with ${timeoutMs}ms timeout`);
+
+    // Set timeout with progress tracking
     const timeout = setTimeout(() => {
       if (!isResolved) {
         isResolved = true;
-        stream.destroy();
-        reject(new Error(`Stream to buffer conversion timeout after ${timeoutMs}ms`));
+        console.error(`[STREAM] Timeout after ${timeoutMs}ms, received ${bytesReceived} bytes`);
+        try {
+          stream.destroy();
+        } catch (destroyError) {
+          console.error(`[STREAM] Error destroying stream:`, destroyError.message);
+        }
+        reject(new Error(`Stream to buffer conversion timeout after ${timeoutMs}ms (received ${bytesReceived} bytes)`));
       }
     }, timeoutMs);
+
+    // Track progress
+    let lastProgressTime = Date.now();
+    const progressInterval = setInterval(() => {
+      if (!isResolved) {
+        const now = Date.now();
+        const elapsed = now - lastProgressTime;
+        console.log(`[STREAM] Progress: ${bytesReceived} bytes received, ${elapsed}ms since last update`);
+
+        // If no progress for 15 seconds, consider it stalled
+        if (elapsed > 15000) {
+          console.warn(`[STREAM] Stream appears stalled, no progress for ${elapsed}ms`);
+        }
+      }
+    }, 5000); // Log progress every 5 seconds
 
     stream.on('data', (chunk) => {
       if (!isResolved) {
         chunks.push(chunk);
+        bytesReceived += chunk.length;
+        lastProgressTime = Date.now();
+
+        // Log progress for large files
+        if (bytesReceived % (1024 * 1024) === 0) { // Every MB
+          console.log(`[STREAM] Received ${(bytesReceived / (1024 * 1024)).toFixed(1)} MB`);
+        }
       }
     });
 
@@ -52,6 +82,8 @@ export const streamToBuffer = async (stream, timeoutMs = 60000) => {
       if (!isResolved) {
         isResolved = true;
         clearTimeout(timeout);
+        clearInterval(progressInterval);
+        console.error(`[STREAM] Stream error after receiving ${bytesReceived} bytes:`, error.message);
         reject(error);
       }
     });
@@ -60,6 +92,8 @@ export const streamToBuffer = async (stream, timeoutMs = 60000) => {
       if (!isResolved) {
         isResolved = true;
         clearTimeout(timeout);
+        clearInterval(progressInterval);
+        console.log(`[STREAM] Stream ended successfully, total: ${(bytesReceived / (1024 * 1024)).toFixed(2)} MB`);
         resolve(Buffer.concat(chunks));
       }
     });
@@ -68,7 +102,20 @@ export const streamToBuffer = async (stream, timeoutMs = 60000) => {
       if (!isResolved) {
         isResolved = true;
         clearTimeout(timeout);
+        clearInterval(progressInterval);
+        console.log(`[STREAM] Stream closed, total: ${(bytesReceived / (1024 * 1024)).toFixed(2)} MB`);
         resolve(Buffer.concat(chunks));
+      }
+    });
+
+    // Handle stream abort
+    stream.on('aborted', () => {
+      if (!isResolved) {
+        isResolved = true;
+        clearTimeout(timeout);
+        clearInterval(progressInterval);
+        console.error(`[STREAM] Stream aborted after receiving ${bytesReceived} bytes`);
+        reject(new Error(`Stream aborted after receiving ${bytesReceived} bytes`));
       }
     });
   });
