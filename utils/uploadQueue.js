@@ -115,6 +115,11 @@ class UploadQueue {
         // Notify user of success
         await this.notifyUser(item.userId, 'success', item);
 
+        // Call onComplete callback if provided
+        if (item.onComplete) {
+          await item.onComplete(true, result, null);
+        }
+
       } catch (error) {
         console.error(`[QUEUE] Failed to upload ${item.fileName}:`, error);
 
@@ -128,6 +133,11 @@ class UploadQueue {
 
           // Notify user of failure
           await this.notifyUser(item.userId, 'failed', item);
+
+          // Call onComplete callback if provided
+          if (item.onComplete) {
+            await item.onComplete(false, null, item.error);
+          }
         } else {
           item.status = 'pending';
           console.log(`[QUEUE] Retrying ${item.fileName} (attempt ${item.attempts}/${item.maxAttempts})`);

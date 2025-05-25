@@ -303,15 +303,56 @@ export default async function handler(req, res) {
       const userId = fileEvents[0].source.userId;
       const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
 
+      // Create file checklist for tracking
+      const fileChecklist = fileEvents.map((event, index) => {
+        let fileName;
+        switch (event.message.type) {
+          case 'file':
+            fileName = event.message.fileName;
+            break;
+          case 'image':
+            fileName = `image_${event.message.id}.jpg`;
+            break;
+          case 'video':
+            fileName = `video_${event.message.id}.mp4`;
+            break;
+          case 'audio':
+            fileName = `audio_${event.message.id}.m4a`;
+            break;
+          default:
+            fileName = `file_${event.message.id}`;
+        }
+
+        return {
+          index: index + 1,
+          messageId: event.message.id,
+          fileName: fileName,
+          fileType: event.message.type,
+          status: 'pending', // pending, downloading, uploading, completed, failed
+          startTime: null,
+          completedTime: null,
+          error: null
+        };
+      });
+
+      console.log(`[CHECKLIST] Created checklist for ${fileChecklist.length} files:`,
+        fileChecklist.map(f => `${f.index}. ${f.fileName} (${f.status})`));
+
       // Send single summary response for all files
-      const summaryMessage = `📁 กำลังประมวลผลไฟล์ ${fileEvents.length} ไฟล์
+      const checklistText = fileChecklist.map(f => `${f.index}. ${f.fileName} ⏳`).join('\n');
+
+      const summaryMessage = `📁 รับไฟล์ ${fileEvents.length} ไฟล์แล้ว
+
+📋 รายการไฟล์:
+${checklistText}
 
 📊 สถานะ:
 • รับไฟล์แล้ว: ${fileEvents.length} ไฟล์
-• กำลังดาวน์โหลด: ${fileEvents.length} ไฟล์
-• รออัพโหลด: 0 ไฟล์
+• รอดำเนินการ: ${fileEvents.length} ไฟล์
+• กำลังประมวลผล: 0 ไฟล์
+• เสร็จแล้ว: 0 ไฟล์
 
-⏳ ระบบจะแจ้งเมื่ออัพโหลดเสร็จทีละไฟล์
+⏳ ระบบจะประมวลผลทีละไฟล์ตามลำดับ
 
 🌐 เว็บไซต์: ${webAppUrl}`;
 
@@ -320,45 +361,54 @@ export default async function handler(req, res) {
         text: summaryMessage,
       });
 
-      // Process each file in background with staggered timing to avoid resource contention
-      for (let i = 0; i < fileEvents.length; i++) {
-        const event = fileEvents[i];
-        const userId = event.source.userId;
-        const messageId = event.message.id;
+      // Process files sequentially (one by one) instead of parallel processing
+      const processFileSequentially = async (fileIndex = 0) => {
+        if (fileIndex >= fileEvents.length) {
+          console.log(`[CHECKLIST] All ${fileEvents.length} files processed`);
 
-        // Generate filename based on message type
-        let fileName;
-        let fileExtension;
+          // Send final summary
+          const finalSummary = `✅ ประมวลผลไฟล์เสร็จสิ้น
 
-        switch (event.message.type) {
-          case 'file':
-            fileName = event.message.fileName;
-            break;
-          case 'image':
-            fileExtension = '.jpg';
-            fileName = `image_${event.message.id}${fileExtension}`;
-            break;
-          case 'video':
-            fileExtension = '.mp4';
-            fileName = `video_${event.message.id}${fileExtension}`;
-            break;
-          case 'audio':
-            fileExtension = '.m4a';
-            fileName = `audio_${event.message.id}${fileExtension}`;
-            break;
-          default:
-            fileName = `file_${event.message.id}`;
+📊 สรุปผลลัพธ์:
+• ไฟล์ทั้งหมด: ${fileEvents.length} ไฟล์
+• ดูรายละเอียดได้ที่เว็บไซต์
+
+🌐 เว็บไซต์: ${webAppUrl}`;
+
+          await lineClient.pushMessage(userId, {
+            type: 'text',
+            text: finalSummary,
+          });
+          return;
         }
 
-        console.log(`[DEBUG] File Event ${i + 1}: Handling ${event.message.type} with filename: ${fileName}`);
+        const event = fileEvents[fileIndex];
+        const currentFile = fileChecklist[fileIndex];
+        const messageId = event.message.id;
 
-        // Process file in background with staggered delay to avoid overwhelming the system
-        const processingDelay = i * 2000; // 2 seconds between each file
-        setTimeout(async () => {
-          try {
-            console.log(`[BACKGROUND] Starting background file processing for: ${fileName} (file ${i + 1}/${events.length})`);
+        console.log(`[CHECKLIST] Processing file ${currentFile.index}/${fileEvents.length}: ${currentFile.fileName}`);
 
-            // Quick download with smart timeout based on file type
+        // Update checklist status
+        currentFile.status = 'downloading';
+        currentFile.startTime = new Date();
+
+        // Send progress update
+        const progressMessage = `🔄 กำลังประมวลผลไฟล์ ${currentFile.index}/${fileEvents.length}
+
+📁 ไฟล์: ${currentFile.fileName}
+📊 สถานะ: กำลังดาวน์โหลด...
+
+⏳ กรุณารอสักครู่`;
+
+        await lineClient.pushMessage(userId, {
+          type: 'text',
+          text: progressMessage,
+        });
+
+        try {
+          console.log(`[BACKGROUND] Starting file processing for: ${currentFile.fileName}`);
+
+          // Download file with smart timeout based on file type
             let stream = null;
             let retryCount = 0;
             const maxRetries = 2; // Reduce retries for faster processing
@@ -413,57 +463,118 @@ export default async function handler(req, res) {
               }
             }
 
-            // Convert stream to buffer with timeout
-            console.log('[BACKGROUND] Converting stream to buffer');
-            const buffer = await streamToBuffer(stream, 30000); // 30s timeout for buffer conversion
-            console.log('[BACKGROUND] Stream converted to buffer successfully, size:', (buffer.length / (1024 * 1024)).toFixed(2), 'MB');
+          // Convert stream to buffer with timeout
+          console.log(`[CHECKLIST] Converting stream to buffer for: ${currentFile.fileName}`);
+          const buffer = await streamToBuffer(stream, 30000);
+          console.log(`[CHECKLIST] Stream converted successfully, size: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB`);
 
-            // Add file to upload queue immediately
-            console.log('[BACKGROUND] Adding file to upload queue');
-            const queueId = uploadQueue.addToQueue(userId, {
-              fileName,
-              buffer,
-              messageId,
-              messageType: event.message.type
-            });
+          // Update status to uploading
+          currentFile.status = 'uploading';
 
-            console.log(`[BACKGROUND] File added to queue with ID: ${queueId}`);
+          // Send upload progress update
+          const uploadMessage = `📤 กำลังอัพโหลดไฟล์ ${currentFile.index}/${fileEvents.length}
 
-          } catch (backgroundError) {
-            console.error('[BACKGROUND] Error in background processing:', backgroundError);
+📁 ไฟล์: ${currentFile.fileName}
+📊 ขนาด: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB
+📊 สถานะ: กำลังอัพโหลดไป Google Drive...
 
-            // Notify user about error with more specific message
-            try {
-              let errorType = 'ไม่ทราบสาเหตุ';
-              if (backgroundError.message.includes('timeout')) {
-                errorType = 'หมดเวลาในการดาวน์โหลด (ไฟล์อาจใหญ่เกินไป)';
-              } else if (backgroundError.message.includes('socket')) {
-                errorType = 'ปัญหาการเชื่อมต่อเครือข่าย';
-              } else if (backgroundError.message.includes('stream')) {
-                errorType = 'ปัญหาในการประมวลผลไฟล์';
+⏳ กรุณารอสักครู่`;
+
+          await lineClient.pushMessage(userId, {
+            type: 'text',
+            text: uploadMessage,
+          });
+
+          // Add file to upload queue immediately
+          console.log(`[CHECKLIST] Adding file to upload queue: ${currentFile.fileName}`);
+          const queueId = uploadQueue.addToQueue(userId, {
+            fileName: currentFile.fileName,
+            buffer,
+            messageId,
+            messageType: event.message.type,
+            checklistIndex: fileIndex,
+            onComplete: async (success, result, error) => {
+              if (success) {
+                currentFile.status = 'completed';
+                currentFile.completedTime = new Date();
+
+                // Send success message
+                const successMessage = `✅ อัพโหลดสำเร็จ ${currentFile.index}/${fileEvents.length}
+
+📁 ไฟล์: ${currentFile.fileName}
+🔗 ลิงก์: ${result.webViewLink || 'ไม่สามารถสร้างลิงก์ได้'}
+
+⏭️ ดำเนินการไฟล์ถัดไป...`;
+
+                await lineClient.pushMessage(userId, {
+                  type: 'text',
+                  text: successMessage,
+                });
+              } else {
+                currentFile.status = 'failed';
+                currentFile.error = error;
+
+                // Send error message
+                const errorMessage = `❌ อัพโหลดล้มเหลว ${currentFile.index}/${fileEvents.length}
+
+📁 ไฟล์: ${currentFile.fileName}
+🔍 สาเหตุ: ${error}
+
+⏭️ ดำเนินการไฟล์ถัดไป...`;
+
+                await lineClient.pushMessage(userId, {
+                  type: 'text',
+                  text: errorMessage,
+                });
               }
 
-              const errorMessage = `❌ ประมวลผลไฟล์ล้มเหลว: ${fileName}
+              // Process next file
+              setTimeout(() => processFileSequentially(fileIndex + 1), 1000);
+            }
+          });
 
+          console.log(`[CHECKLIST] File added to queue with ID: ${queueId}`);
+
+        } catch (downloadError) {
+          console.error(`[CHECKLIST] Error processing file ${currentFile.index}: ${downloadError.message}`);
+
+          // Update checklist status
+          currentFile.status = 'failed';
+          currentFile.error = downloadError.message;
+
+          // Notify user about error
+          let errorType = 'ไม่ทราบสาเหตุ';
+          if (downloadError.message.includes('timeout')) {
+            errorType = 'หมดเวลาในการดาวน์โหลด (ไฟล์อาจใหญ่เกินไป)';
+          } else if (downloadError.message.includes('socket')) {
+            errorType = 'ปัญหาการเชื่อมต่อเครือข่าย';
+          } else if (downloadError.message.includes('stream')) {
+            errorType = 'ปัญหาในการประมวลผลไฟล์';
+          }
+
+          const errorMessage = `❌ ประมวลผลล้มเหลว ${currentFile.index}/${fileEvents.length}
+
+📁 ไฟล์: ${currentFile.fileName}
 🔍 สาเหตุ: ${errorType}
 
 💡 แนะนำ:
 - ลองส่งไฟล์ใหม่อีกครั้ง
 - หากไฟล์ใหญ่ ลองย่อขนาดก่อนส่ง
-- ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต
 
-🌐 เว็บไซต์: ${webAppUrl}`;
+⏭️ ดำเนินการไฟล์ถัดไป...`;
 
-              await lineClient.pushMessage(userId, {
-                type: 'text',
-                text: errorMessage,
-              });
-            } catch (notifyError) {
-              console.error('[BACKGROUND] Failed to notify user about background error:', notifyError);
-            }
-          }
-        }, processingDelay);
-      } // End of file processing loop
+          await lineClient.pushMessage(userId, {
+            type: 'text',
+            text: errorMessage,
+          });
+
+          // Process next file after error
+          setTimeout(() => processFileSequentially(fileIndex + 1), 1000);
+        }
+      };
+
+      // Start processing files sequentially
+      processFileSequentially(0);
     } // End of file events handling
 
     return res.status(200).end();
