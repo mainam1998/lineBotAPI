@@ -375,10 +375,14 @@ ${checklistText}
 
 🌐 เว็บไซต์: ${webAppUrl}`;
 
-          await lineClient.pushMessage(userId, {
-            type: 'text',
-            text: finalSummary,
-          });
+          try {
+            await lineClient.pushMessage(userId, {
+              type: 'text',
+              text: finalSummary,
+            });
+          } catch (lineError) {
+            console.error(`[CHECKLIST] Failed to send final summary: ${lineError.message}`);
+          }
           return;
         }
 
@@ -400,10 +404,15 @@ ${checklistText}
 
 ⏳ กรุณารอสักครู่`;
 
-        await lineClient.pushMessage(userId, {
-          type: 'text',
-          text: progressMessage,
-        });
+        try {
+          await lineClient.pushMessage(userId, {
+            type: 'text',
+            text: progressMessage,
+          });
+        } catch (lineError) {
+          console.error(`[CHECKLIST] Failed to send progress message: ${lineError.message}`);
+          // Continue processing even if message sending fails
+        }
 
         try {
           console.log(`[BACKGROUND] Starting file processing for: ${currentFile.fileName}`);
@@ -413,17 +422,17 @@ ${checklistText}
             let retryCount = 0;
             const maxRetries = 2; // Reduce retries for faster processing
 
-            // Smart timeout based on file type - increased for better reliability
-            const getSmartTimeout = (messageType) => {
-              switch (messageType) {
-                case 'image': return 25000; // 25s for images (increased from 15s)
-                case 'video': return 45000; // 45s for videos (increased from 30s)
-                case 'audio': return 35000; // 35s for audio (increased from 25s)
-                default: return 30000; // 30s for other files (increased from 20s)
-              }
-            };
+          // Smart timeout based on file type - increased for better reliability
+          const getSmartTimeout = (messageType) => {
+            switch (messageType) {
+              case 'image': return 25000; // 25s for images (increased from 15s)
+              case 'video': return 45000; // 45s for videos (increased from 30s)
+              case 'audio': return 35000; // 35s for audio (increased from 25s)
+              default: return 30000; // 30s for other files (increased from 20s)
+            }
+          };
 
-            const smartTimeout = getSmartTimeout(event.message.type);
+          const smartTimeout = getSmartTimeout(event.message.type);
 
             while (retryCount < maxRetries && !stream) {
               try {
@@ -480,10 +489,15 @@ ${checklistText}
 
 ⏳ กรุณารอสักครู่`;
 
-          await lineClient.pushMessage(userId, {
-            type: 'text',
-            text: uploadMessage,
-          });
+          try {
+            await lineClient.pushMessage(userId, {
+              type: 'text',
+              text: uploadMessage,
+            });
+          } catch (lineError) {
+            console.error(`[CHECKLIST] Failed to send upload message: ${lineError.message}`);
+            // Continue processing even if message sending fails
+          }
 
           // Add file to upload queue immediately
           console.log(`[CHECKLIST] Adding file to upload queue: ${currentFile.fileName}`);
@@ -506,10 +520,14 @@ ${checklistText}
 
 ⏭️ ดำเนินการไฟล์ถัดไป...`;
 
-                await lineClient.pushMessage(userId, {
-                  type: 'text',
-                  text: successMessage,
-                });
+                try {
+                  await lineClient.pushMessage(userId, {
+                    type: 'text',
+                    text: successMessage,
+                  });
+                } catch (lineError) {
+                  console.error(`[CHECKLIST] Failed to send success message: ${lineError.message}`);
+                }
               } else {
                 currentFile.status = 'failed';
                 currentFile.error = error;
@@ -522,10 +540,14 @@ ${checklistText}
 
 ⏭️ ดำเนินการไฟล์ถัดไป...`;
 
-                await lineClient.pushMessage(userId, {
-                  type: 'text',
-                  text: errorMessage,
-                });
+                try {
+                  await lineClient.pushMessage(userId, {
+                    type: 'text',
+                    text: errorMessage,
+                  });
+                } catch (lineError) {
+                  console.error(`[CHECKLIST] Failed to send error message: ${lineError.message}`);
+                }
               }
 
               // Process next file
@@ -563,10 +585,14 @@ ${checklistText}
 
 ⏭️ ดำเนินการไฟล์ถัดไป...`;
 
-          await lineClient.pushMessage(userId, {
-            type: 'text',
-            text: errorMessage,
-          });
+          try {
+            await lineClient.pushMessage(userId, {
+              type: 'text',
+              text: errorMessage,
+            });
+          } catch (lineError) {
+            console.error(`[CHECKLIST] Failed to send download error message: ${lineError.message}`);
+          }
 
           // Process next file after error
           setTimeout(() => processFileSequentially(fileIndex + 1), 1000);
