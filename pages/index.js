@@ -16,12 +16,14 @@ export default function Home() {
   const runTest = async (endpoint) => {
     setIsLoading(true);
     setError(null);
+    setTestResults(null); // ล้างผลลัพธ์เก่า
     try {
       const response = await fetch(`/api/${endpoint}`);
       const data = await response.json();
       setTestResults(data);
     } catch (err) {
       setError(err.message);
+      setTestResults(null);
     } finally {
       setIsLoading(false);
     }
@@ -265,7 +267,7 @@ export default function Home() {
                       {filteredFiles.length > 0 ? (
                         filteredFiles.map((file) => (
                           <tr key={file.id} className={styles.tableRow}>
-                            <td className={styles.tableCell}>{file.name}</td>
+                            <td className={styles.tableCellFileName}>{file.name}</td>
                             <td className={styles.tableCell}>
                               <span
                                 className={styles.fileTypeTag}
@@ -352,29 +354,40 @@ export default function Home() {
               </div>
             )}
 
-            {/* Testing Error State */}
-            {error && (
-              <div className={`${styles.alert} ${styles.alertError}`}>
-                <span className={styles.alertIcon}>❌</span>
+            {/* Testing Results - แสดงเฉพาะเมื่อไม่ loading */}
+            {!isLoading && testResults && (
+              <div className={`${styles.alert} ${
+                testResults.status === 'ok' || testResults.success === true
+                  ? styles.alertSuccess
+                  : styles.alertError
+              }`}>
+                <span className={styles.alertIcon}>
+                  {testResults.status === 'ok' || testResults.success === true ? '✅' : '❌'}
+                </span>
                 <div className={styles.alertContent}>
-                  <h4>การทดสอบล้มเหลว</h4>
-                  <p>{error}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Testing Results */}
-            {testResults && (
-              <div className={`${styles.alert} ${testResults.success ? styles.alertSuccess : styles.alertWarning}`}>
-                <span className={styles.alertIcon}>{testResults.success ? '✅' : '⚠️'}</span>
-                <div className={styles.alertContent}>
-                  <h4>{testResults.success ? 'การทดสอบสำเร็จ' : 'การทดสอบมีปัญหา'}</h4>
-                  <p>{testResults.message}</p>
+                  <h4>
+                    {testResults.status === 'ok' || testResults.success === true
+                      ? 'การทดสอบผ่าน'
+                      : 'การทดสอบไม่ผ่าน'
+                    }
+                  </h4>
+                  <p>{testResults.message || 'ไม่มีข้อความเพิ่มเติม'}</p>
                   {testResults.data && (
                     <pre style={{ marginTop: '8px', fontSize: '0.85rem', color: '#666' }}>
                       {JSON.stringify(testResults.data, null, 2)}
                     </pre>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Testing Error State - แสดงเฉพาะเมื่อมี error และไม่ loading */}
+            {!isLoading && error && !testResults && (
+              <div className={`${styles.alert} ${styles.alertError}`}>
+                <span className={styles.alertIcon}>❌</span>
+                <div className={styles.alertContent}>
+                  <h4>การทดสอบล้มเหลว</h4>
+                  <p>{error}</p>
                 </div>
               </div>
             )}

@@ -226,14 +226,22 @@
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
+.alertSuccess {
+  background-color: #E8F5E8;
+  color: #2E7D32;
+  border: 1px solid #4CAF50;
+}
+
 .alertError {
   background-color: #FFEBEE;
   color: #D32F2F;
+  border: 1px solid #F44336;
 }
 
 .alertWarning {
   background-color: #FFF8E1;
   color: #F57F17;
+  border: 1px solid #FF9800;
 }
 
 .alertIcon {
@@ -321,6 +329,13 @@
 .tableCell {
   padding: 12px;
   color: #fff;
+  text-align: center;
+}
+
+.tableCellFileName {
+  padding: 12px;
+  color: #fff;
+  text-align: left;
 }
 
 .fileTypeTag {
