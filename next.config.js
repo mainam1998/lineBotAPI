@@ -33,21 +33,10 @@ const nextConfig = {
 
     return config;
   },
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb', // Adjusted for Vercel Free Plan
-    },
-    responseLimit: false,
-  },
   // Enhanced performance settings
   compress: true,
   poweredByHeader: false,
   generateEtags: false,
-
-  // Environment variables for runtime
-  env: {
-    NODE_OPTIONS: '--max-old-space-size=1024',
-  },
 
   // Headers for better performance
   async headers() {
