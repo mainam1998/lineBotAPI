@@ -35,7 +35,7 @@ const nextConfig = {
   },
   api: {
     bodyParser: {
-      sizeLimit: '300mb', // Increased to match LINE Bot limit
+      sizeLimit: '50mb', // Adjusted for Vercel Free Plan
     },
     responseLimit: false,
   },
@@ -46,7 +46,7 @@ const nextConfig = {
 
   // Environment variables for runtime
   env: {
-    NODE_OPTIONS: '--max-old-space-size=3008',
+    NODE_OPTIONS: '--max-old-space-size=1024',
   },
 
   // Headers for better performance

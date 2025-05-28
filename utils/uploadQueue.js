@@ -232,9 +232,9 @@ class UploadQueue {
           process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
         );
 
-        // Smart timeout based on file size
+        // Smart timeout based on file size (optimized for Vercel Free Plan)
         const fileSizeInMB = item.buffer.length / (1024 * 1024);
-        const smartUploadTimeout = Math.max(90000, fileSizeInMB * 15000); // Min 1.5 min, +15s per MB
+        const smartUploadTimeout = Math.max(45000, fileSizeInMB * 1000); // Min 45s, +1s per MB
 
         console.log(`[QUEUE] Using smart timeout: ${Math.round(smartUploadTimeout/1000)}s`);
 
@@ -263,8 +263,8 @@ class UploadQueue {
           process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
         );
 
-        // Longer timeout for legacy upload
-        const legacyTimeout = 180000; // 3 minutes
+        // Longer timeout for legacy upload (adjusted for Vercel Free Plan)
+        const legacyTimeout = 55000; // 55 seconds
         const legacyTimeoutPromise = new Promise((_, reject) => {
           setTimeout(() => reject(new Error(`Legacy upload timeout after ${legacyTimeout/1000} seconds`)), legacyTimeout);
         });

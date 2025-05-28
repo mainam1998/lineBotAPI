@@ -30,7 +30,7 @@ export const initGoogleDrive = () => {
  * @param {number} maxSize - Maximum file size in bytes (default: 300MB)
  * @returns {Promise<Buffer>} Buffer containing stream data
  */
-export const streamToBuffer = async (stream, timeoutMs = 60000, maxSize = 300 * 1024 * 1024) => {
+export const streamToBuffer = async (stream, timeoutMs = 50000, maxSize = 50 * 1024 * 1024) => {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let isResolved = false;
@@ -426,9 +426,9 @@ export const modernUpload = async (drive, fileName, buffer, folderId) => {
       throw new Error('Buffer cannot be empty');
     }
 
-    // Check file size limits
+    // Check file size limits (adjusted for Vercel Free Plan)
     const fileSizeInMB = buffer.length / (1024 * 1024);
-    const MAX_FILE_SIZE_MB = 300; // LINE Bot limit
+    const MAX_FILE_SIZE_MB = 50; // Adjusted for Vercel Free Plan timeout limits
 
     if (fileSizeInMB > MAX_FILE_SIZE_MB) {
       throw new Error(`File size ${fileSizeInMB.toFixed(2)}MB exceeds maximum limit of ${MAX_FILE_SIZE_MB}MB`);
@@ -438,17 +438,17 @@ export const modernUpload = async (drive, fileName, buffer, folderId) => {
     const mimeType = getMimeType(fileName);
     console.log('[DRIVE] MIME type:', mimeType);
 
-    // Determine upload strategy based on file size and type
+    // Determine upload strategy based on file size and type (optimized for Vercel Free Plan)
     let useResumableUpload = false;
     let useChunkedUpload = false;
 
-    if (fileSizeInMB > 50) {
-      // Very large files (>50MB) - use resumable with chunking
+    if (fileSizeInMB > 25) {
+      // Large files (>25MB) - use resumable with chunking
       useResumableUpload = true;
       useChunkedUpload = true;
       uploadMethod = 'resumable-chunked';
     } else if (fileSizeInMB > 5) {
-      // Large files (5-50MB) - use resumable
+      // Medium files (5-25MB) - use resumable
       useResumableUpload = true;
       uploadMethod = 'resumable';
     } else {

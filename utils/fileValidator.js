@@ -7,70 +7,70 @@ const path = require('path');
 
 class FileValidator {
   constructor() {
-    // Maximum file size (300MB - LINE Bot limit)
-    this.MAX_FILE_SIZE = 300 * 1024 * 1024;
-    
+    // Maximum file size (50MB - Adjusted for Vercel Free Plan)
+    this.MAX_FILE_SIZE = 50 * 1024 * 1024;
+
     // Minimum file size (1 byte)
     this.MIN_FILE_SIZE = 1;
-    
+
     // Allowed file extensions (comprehensive list)
     this.ALLOWED_EXTENSIONS = new Set([
       // Images
       'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif',
       'heic', 'heif', 'avif', 'jfif',
-      
+
       // Videos
       'mp4', 'mov', 'avi', 'wmv', 'flv', 'webm', 'mkv', '3gp', '3g2',
       'mpg', 'mpeg', 'ogv', 'm4v', 'asf',
-      
+
       // Audio
       'm4a', 'mp3', 'wav', 'flac', 'aac', 'ogg', 'oga', 'wma', 'opus',
       'aiff', 'au', 'ra', 'mid', 'midi',
-      
+
       // Documents
       'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf',
       'odt', 'ods', 'odp', 'pages', 'numbers', 'keynote',
-      
+
       // Archives
       'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'dmg', 'iso',
-      
+
       // Programming
       'js', 'mjs', 'ts', 'jsx', 'tsx', 'json', 'xml', 'yaml', 'yml',
       'toml', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'php',
       'rb', 'go', 'rs', 'swift', 'kt', 'scala',
-      
+
       // Web & Markup
       'html', 'htm', 'css', 'scss', 'sass', 'less', 'md', 'markdown',
-      
+
       // Data
       'csv', 'tsv', 'sql', 'db', 'sqlite', 'sqlite3',
-      
+
       // Fonts
       'ttf', 'otf', 'woff', 'woff2', 'eot',
-      
+
       // Design
       'psd', 'ai', 'eps', 'indd', 'sketch', 'fig',
-      
+
       // CAD & 3D
       'dwg', 'dxf', 'step', 'stp', 'iges', 'igs', 'stl', 'obj',
       'fbx', 'dae', 'gltf', 'glb',
-      
+
       // eBooks
       'epub', 'mobi', 'azw', 'azw3',
-      
+
       // System
       'log', 'conf', 'cfg', 'ini', 'env',
-      
+
       // Crypto
       'key', 'pem', 'crt', 'cer', 'p12', 'pfx'
     ]);
-    
+
     // Dangerous file extensions (security risk)
     this.DANGEROUS_EXTENSIONS = new Set([
       'exe', 'bat', 'cmd', 'com', 'scr', 'pif', 'vbs', 'js', 'jar',
       'app', 'deb', 'rpm', 'pkg', 'dmg', 'msi', 'apk', 'ipa'
     ]);
-    
+
     // File type categories for better organization
     this.FILE_CATEGORIES = {
       image: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif', 'avif'],
