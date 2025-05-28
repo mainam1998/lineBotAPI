@@ -1,0 +1,622 @@
+/* Component Styles */
+
+/* Container หลัก */
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+  background-color: #020126;
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.main {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+}
+
+/* Header */
+.header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.title {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: #4630D9;
+  font-weight: 700;
+}
+
+.subtitle {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: #fff;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Card Styles */
+.card {
+  padding: 1.5rem;
+  border: 1px solid #150259;
+  border-radius: 10px;
+  background-color: #0A0140;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.cardTitle {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Status Section */
+.statusContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.statusInfo {
+  text-align: left;
+}
+
+.statusInfo p {
+  color: #fff;
+  margin: 0.5rem 0;
+}
+
+.statusInfo code {
+  background-color: #150259;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.statusIndicator {
+  color: #4630D9;
+  font-weight: 500;
+}
+
+.statusDot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #4630D9;
+  margin-right: 8px;
+}
+
+/* Button Styles */
+.button {
+  padding: 0.75rem 1.25rem;
+  background-color: #150259;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.button:hover {
+  background-color: #4630D9;
+}
+
+.refreshButton {
+  padding: 0.5rem 1rem;
+  background-color: #4630D9;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Search Section */
+.searchContainer {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 250px;
+  position: relative;
+}
+
+.searchInput input {
+  width: 100%;
+  padding: 10px 15px;
+  border: 1px solid #150259;
+  border-radius: 4px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+  background-color: #020126;
+  color: #fff;
+}
+
+.searchInput input::placeholder {
+  color: #4630D9;
+}
+
+.clearButton {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #4630D9;
+}
+
+.searchSelect {
+  padding: 10px 15px;
+  border: 1px solid #150259;
+  border-radius: 4px;
+  background-color: #020126;
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+}
+
+/* Loading States */
+.loading {
+  padding: 20px;
+  text-align: center;
+  background-color: #150259;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.loadingSpinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(70, 48, 217, 0.1);
+  border-top-color: #4630D9;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+.loadingText {
+  color: #fff;
+  margin-top: 10px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Alert Messages */
+.alert {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.alertSuccess {
+  background-color: #E8F5E8;
+  color: #2E7D32;
+  border: 1px solid #4CAF50;
+}
+
+.alertError {
+  background-color: #FFEBEE;
+  color: #D32F2F;
+  border: 1px solid #F44336;
+}
+
+.alertWarning {
+  background-color: #FFF8E1;
+  color: #F57F17;
+  border: 1px solid #FF9800;
+}
+
+.alertIcon {
+  font-size: 24px;
+}
+
+.alertContent h4 {
+  margin: 0;
+  font-weight: 500;
+}
+
+.alertContent p {
+  margin: 4px 0 0 0;
+}
+
+/* Empty State */
+.emptyState {
+  padding: 40px 20px;
+  text-align: center;
+  background-color: #150259;
+  border-radius: 8px;
+  margin: 20px 0;
+  border: 1px dashed #4630D9;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  margin-bottom: 15px;
+  color: #4630D9;
+}
+
+.emptyTitle {
+  font-size: 1.1rem;
+  color: #fff;
+  margin: 0;
+}
+
+.emptySubtitle {
+  font-size: 0.9rem;
+  color: #4630D9;
+  margin-top: 10px;
+}
+
+/* Table Styles */
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.tableContainer {
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid #150259;
+  border-radius: 8px;
+  background-color: #0A0140;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tableHeader {
+  position: sticky;
+  top: 0;
+  background-color: #150259;
+  z-index: 1;
+}
+
+.tableHeader tr {
+  border-bottom: 2px solid #4630D9;
+}
+
+.tableHeaderCell {
+  padding: 14px 12px;
+  text-align: left;
+  color: #fff;
+  font-weight: 600;
+}
+
+.tableRow {
+  border-bottom: 1px solid #150259;
+  transition: background-color 0.2s;
+}
+
+.tableCell {
+  padding: 12px;
+  color: #fff;
+  text-align: center;
+}
+
+.tableCellFileName {
+  padding: 12px;
+  color: #fff;
+  text-align: left;
+}
+
+.fileTypeTag {
+  display: inline-block;
+  padding: 4px 8px;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.fileLink {
+  color: #4630D9;
+  text-decoration: none;
+  padding: 6px 12px;
+  background-color: #150259;
+  border: 1px solid #4630D9;
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.fileLink:hover {
+  background-color: #4630D9;
+  color: white;
+}
+
+.noLink {
+  color: #4630D9;
+  font-size: 0.9rem;
+}
+
+.emptyRow {
+  text-align: center;
+  color: #fff;
+  padding: 20px;
+}
+
+/* Stats */
+.stats {
+  margin-top: 15px;
+  font-size: 0.9rem;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.clearSearchButton {
+  background: none;
+  border: none;
+  color: #4630D9;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 4px 8px;
+}
+
+/* Button Groups */
+.buttonGroup {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  /* iPhone 12 mini และมือถือขนาดเล็ก */
+  .container {
+    padding: 1rem !important;
+  }
+
+  .card {
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .title {
+    font-size: 1.8rem !important;
+  }
+
+  .subtitle {
+    font-size: 1rem !important;
+  }
+
+  .searchContainer {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .searchInput {
+    min-width: 100% !important;
+  }
+
+  .buttonGroup {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .tableContainer {
+    font-size: 0.8rem !important;
+  }
+
+  .tableHeaderCell {
+    padding: 8px 4px !important;
+  }
+
+  .tableCell {
+    padding: 8px 4px !important;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  /* iPhone 12, 13 และ tablet ขนาดเล็ก */
+  .container {
+    padding: 1.5rem !important;
+  }
+
+  .card {
+    padding: 1.25rem !important;
+  }
+
+  .title {
+    font-size: 2rem !important;
+  }
+
+  .searchContainer {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .searchInput {
+    min-width: 100% !important;
+  }
+
+  .buttonGroup {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+  }
+
+  .button {
+    flex: 1 1 45% !important;
+    min-width: 150px !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* iPad 11 นิ้ว และ tablet ขนาดใหญ่ */
+  .container {
+    padding: 2rem !important;
+  }
+
+  .searchContainer {
+    flex-direction: row !important;
+  }
+
+  .searchInput {
+    min-width: 300px !important;
+  }
+
+  .buttonGroup {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+  }
+
+  .button {
+    flex: 0 1 auto !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  /* Desktop และจอขนาดใหญ่ */
+  .container {
+    padding: 2rem !important;
+  }
+}
+
+/* Card Header with Queue Status */
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* Queue Status Top Right */
+.queueStatusTopRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #150259 0%, #0A0140 100%);
+  border-radius: 20px;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #4630D9;
+  box-shadow: 0 2px 6px rgba(70, 48, 217, 0.15);
+  flex-wrap: wrap;
+}
+
+.queueTopIcon {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.queueTopStat {
+  color: #4630D9;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: rgba(70, 48, 217, 0.1);
+  padding: 0.15rem 0.4rem;
+  border-radius: 12px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.queueTopTotal {
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: #4630D9;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+/* Responsive Design for Queue Status Top Right */
+@media (max-width: 768px) {
+  .cardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .queueStatusTopRight {
+    align-self: flex-end;
+    padding: 0.3rem 0.6rem;
+    gap: 0.4rem;
+  }
+
+  .queueTopStat {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.3rem;
+  }
+
+  .queueTopTotal {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .cardHeader {
+    gap: 0.5rem;
+  }
+
+  .queueStatusTopRight {
+    padding: 0.25rem 0.5rem;
+    gap: 0.3rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .queueTopStat {
+    font-size: 0.65rem;
+    padding: 0.05rem 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .queueTopTotal {
+    font-size: 0.6rem;
+    padding: 0.05rem 0.3rem;
+    flex-shrink: 0;
+  }
+}
