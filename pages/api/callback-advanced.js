@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       );
 
       // Send success message to user
-      const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+      const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
       const successMessage = `อัพโหลดสำเร็จ
 
 ไฟล์: ${uploadResult.webViewLink || 'ไม่สามารถสร้างลิงก์ได้'}
