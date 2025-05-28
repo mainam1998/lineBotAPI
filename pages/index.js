@@ -384,14 +384,7 @@ export default function Home() {
 
               <button
                 className={styles.button}
-                onClick={() => runTest('debug-env')}
-              >
-                <span>🔍</span> ตรวจสอบ Environment Variables
-              </button>
-
-              <button
-                className={styles.button}
-                onClick={() => runTest('test-drive-simple')}
+                onClick={() => runTest('drive-test')}
               >
                 <span>📂</span> ทดสอบ Google Drive API
               </button>
@@ -437,63 +430,7 @@ export default function Home() {
                     }
                   </h4>
                   <p>{testResults.message || 'ไม่มีข้อความเพิ่มเติม'}</p>
-
-                  {/* แสดงข้อมูลรายละเอียด */}
-                  {testResults.details && (
-                    <div style={{ marginTop: '12px' }}>
-                      {/* แสดงข้อเสนอแนะ */}
-                      {testResults.details.suggestions && testResults.details.suggestions.length > 0 && (
-                        <div style={{ marginBottom: '8px' }}>
-                          <strong>💡 ข้อเสนอแนะ:</strong>
-                          <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
-                            {testResults.details.suggestions.map((suggestion, index) => (
-                              <li key={index} style={{ fontSize: '0.9rem' }}>{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* แสดงข้อมูลไฟล์ */}
-                      {testResults.details.files && testResults.details.files.length > 0 && (
-                        <div style={{ marginBottom: '8px' }}>
-                          <strong>📁 ไฟล์ในโฟลเดอร์:</strong>
-                          <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
-                            {testResults.details.files.slice(0, 5).map((file, index) => (
-                              <li key={index} style={{ fontSize: '0.9rem' }}>
-                                {file.name} ({file.size})
-                              </li>
-                            ))}
-                            {testResults.details.files.length > 5 && (
-                              <li style={{ fontSize: '0.9rem', fontStyle: 'italic' }}>
-                                และอีก {testResults.details.files.length - 5} ไฟล์...
-                              </li>
-                            )}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* แสดงข้อมูลเทคนิค */}
-                      {testResults.details.serviceAccount && (
-                        <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '8px' }}>
-                          <strong>🔧 ข้อมูลเทคนิค:</strong><br/>
-                          Service Account: {testResults.details.serviceAccount}<br/>
-                          {testResults.details.folderId && (
-                            <>Folder ID: {testResults.details.folderId}<br/></>
-                          )}
-                          {testResults.details.folderUrl && (
-                            <>
-                              <a href={testResults.details.folderUrl} target="_blank" rel="noopener noreferrer">
-                                🔗 เปิดโฟลเดอร์ใน Google Drive
-                              </a>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* แสดง JSON data สำหรับข้อมูลอื่นๆ */}
-                  {testResults.data && !testResults.details && (
+                  {testResults.data && (
                     <pre style={{ marginTop: '8px', fontSize: '0.85rem', color: '#666' }}>
                       {JSON.stringify(testResults.data, null, 2)}
                     </pre>
