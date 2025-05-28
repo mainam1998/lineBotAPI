@@ -12,14 +12,54 @@ import axios from 'axios';
  * @returns {import('googleapis').drive_v3.Drive} Google Drive API client
  */
 export const initGoogleDrive = () => {
-  const auth = new google.auth.JWT(
-    process.env.GOOGLE_CLIENT_EMAIL,
-    null,
-    process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    ['https://www.googleapis.com/auth/drive.file']
-  );
+  try {
+    console.log('[DRIVE] Initializing Google Drive...');
 
-  return google.drive({ version: 'v3', auth });
+    // Check if credentials are available
+    const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_CLIENT_EMAIL;
+    if (!serviceAccountEmail) {
+      throw new Error('Google Drive service account email is not set (GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_CLIENT_EMAIL)');
+    }
+
+    // Handle private key - support both direct and base64 encoded
+    let privateKey;
+    if (process.env.GOOGLE_PRIVATE_KEY_BASE64) {
+      // Decode from base64 (recommended for Vercel)
+      console.log('[DRIVE] Using base64 encoded private key');
+      try {
+        privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+      } catch (decodeError) {
+        throw new Error('Failed to decode GOOGLE_PRIVATE_KEY_BASE64: ' + decodeError.message);
+      }
+    } else if (process.env.GOOGLE_PRIVATE_KEY) {
+      // Use direct private key
+      console.log('[DRIVE] Using direct private key');
+      privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+    } else {
+      throw new Error('Google Drive private key is not set (neither GOOGLE_PRIVATE_KEY nor GOOGLE_PRIVATE_KEY_BASE64)');
+    }
+
+    // Validate private key format
+    if (!privateKey.includes('-----BEGIN PRIVATE KEY-----') || !privateKey.includes('-----END PRIVATE KEY-----')) {
+      throw new Error('Invalid private key format - must include BEGIN and END markers');
+    }
+
+    console.log('[DRIVE] Service Account Email:', serviceAccountEmail);
+    console.log('[DRIVE] Private Key Length:', privateKey.length);
+
+    const auth = new google.auth.JWT(
+      serviceAccountEmail,
+      null,
+      privateKey,
+      ['https://www.googleapis.com/auth/drive.file']
+    );
+
+    return google.drive({ version: 'v3', auth });
+
+  } catch (error) {
+    console.error('[DRIVE] Failed to initialize Google Drive:', error.message);
+    throw error;
+  }
 };
 
 /**
