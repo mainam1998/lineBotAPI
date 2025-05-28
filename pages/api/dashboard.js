@@ -7,40 +7,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Check if Google Drive credentials are set
-    if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
-      // ถ้าไม่มีการตั้งค่า credentials ให้ส่งข้อมูลตัวอย่างกลับไปเพื่อการทดสอบ UI
-      // สร้างข้อมูลตัวอย่าง 20 รายการ
-      const mockFiles = [];
-      const fileTypes = [
-        { name: 'รูปภาพ', ext: '.jpg', mime: 'image/jpeg', sizeRange: [1, 5] },
-        { name: 'เอกสาร', ext: '.pdf', mime: 'application/pdf', sizeRange: [0.5, 3] },
-        { name: 'วิดีโอ', ext: '.mp4', mime: 'video/mp4', sizeRange: [10, 30] },
-        { name: 'ไฟล์เสียง', ext: '.mp3', mime: 'audio/mpeg', sizeRange: [3, 8] },
-        { name: 'สเปรดชีต', ext: '.xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', sizeRange: [0.2, 2] },
-        { name: 'นำเสนอ', ext: '.pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', sizeRange: [1, 6] },
-        { name: 'ข้อความ', ext: '.txt', mime: 'text/plain', sizeRange: [0.01, 0.5] },
-      ];
+    // Check if Google Drive credentials are set (support both old and new variable names)
+    const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_CLIENT_EMAIL;
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
-      for (let i = 1; i <= 20; i++) {
-        const fileType = fileTypes[Math.floor(Math.random() * fileTypes.length)];
-        const size = (fileType.sizeRange[0] + Math.random() * (fileType.sizeRange[1] - fileType.sizeRange[0])).toFixed(2);
-        const daysAgo = Math.floor(Math.random() * 30); // สุ่มวันที่ในช่วง 30 วันที่ผ่านมา
-
-        mockFiles.push({
-          id: `mock${i}`,
-          name: `ตัวอย่าง${fileType.name}_${i}${fileType.ext}`,
-          mimeType: fileType.mime,
-          size: `${size} MB`,
-          createdTime: new Date(Date.now() - (daysAgo * 86400000)).toLocaleString('th-TH'),
-          webViewLink: `https://example.com/view${i}`
-        });
-      }
-
+    if (!serviceAccountEmail || !privateKey) {
       return res.status(200).json({
-        status: 'warning',
-        message: 'กำลังใช้ข้อมูลตัวอย่าง เนื่องจากไม่ได้ตั้งค่า Google Drive credentials',
-        files: mockFiles
+        status: 'error',
+        message: 'ไม่สามารถเชื่อมต่อ Google Drive ได้ - ไม่ได้ตั้งค่า credentials',
+        files: []
       });
     }
 
@@ -87,7 +62,7 @@ export default async function handler(req, res) {
       console.error('Error retrieving files from Google Drive:', driveError);
       return res.status(200).json({
         status: 'error',
-        message: 'Failed to retrieve files from Google Drive',
+        message: 'ไม่สามารถเชื่อมต่อ Google Drive ได้',
         error: driveError.message,
         files: []
       });
@@ -96,7 +71,7 @@ export default async function handler(req, res) {
     console.error('Error in dashboard handler:', error);
     return res.status(500).json({
       status: 'error',
-      message: 'Internal server error',
+      message: 'ไม่สามารถเชื่อมต่อ Google Drive ได้',
       error: error.message,
       files: []
     });

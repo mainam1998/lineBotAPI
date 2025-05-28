@@ -1,7 +1,5 @@
 import { initLineClient, verifySignature } from '../../utils/lineClient';
 import { initGoogleDrive, streamToBuffer, modernUpload, listFiles } from '../../utils/googleDriveModern';
-import uploadQueue from '../../utils/uploadQueue';
-import batchProcessor from '../../utils/batchProcessor';
 
 // ตัดฟังก์ชันที่ไม่ได้ใช้แล้วออก
 
@@ -99,7 +97,8 @@ export default async function handler(req, res) {
 - performance หรือ ประสิทธิภาพ หรือ stats: แสดงสถิติประสิทธิภาพ
 - ส่งไฟล์มาเพื่ออัปโหลดไปยัง Google Drive (รองรับหลายไฟล์พร้อมกัน)
 
-🔧 ปรับปรุงใหม่:
+🚀 ฟีเจอร์ใหม่:
+- อัพโหลดทันทีเมื่อรับไฟล์ (ไม่ต้องรอ)
 - รองรับไฟล์ขนาดใหญ่ถึง 50MB
 - ระบบ chunked upload สำหรับไฟล์ขนาดใหญ่
 - การตรวจสอบไฟล์ก่อนอัพโหลด
@@ -246,70 +245,30 @@ export default async function handler(req, res) {
 
       if (text === 'queue' || text === 'คิว' || text === 'สถานะคิว') {
         console.log('[DEBUG] Processing queue status command');
-        try {
-          const userId = event.source.userId;
-          const userQueueStatus = uploadQueue.getUserQueueStatus(userId);
-          const globalStats = uploadQueue.getQueueStats();
-          const batchStatus = batchProcessor.getBatchStatus(userId);
+        const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
 
-          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+        const queueMessage = `📊 สถานะระบบ:
 
-          let queueMessage = `📊 สถานะระบบ:
+🚀 ระบบอัพโหลดใหม่:
+- อัพโหลดทันทีเมื่อรับไฟล์
+- ไม่มีระบบคิวแล้ว
+- ประมวลผลแบบ real-time
 
-🔄 คิวอัพโหลด:
-- รอดำเนินการ: ${userQueueStatus.pending} ไฟล์
-- กำลังอัพโหลด: ${userQueueStatus.processing} ไฟล์
-- สำเร็จแล้ว: ${userQueueStatus.completed} ไฟล์
-- ล้มเหลว: ${userQueueStatus.failed} ไฟล์
-
-📦 Batch Processing:`;
-
-          if (batchStatus) {
-            queueMessage += `
-- สถานะ: ${batchStatus.status === 'collecting' ? 'รอไฟล์เพิ่มเติม' :
-                     batchStatus.status === 'processing' ? 'กำลังประมวลผล' : 'เสร็จสิ้น'}
-- ไฟล์ทั้งหมด: ${batchStatus.totalFiles} ไฟล์
-- ประมวลผลแล้ว: ${batchStatus.processedFiles} ไฟล์`;
-          } else {
-            queueMessage += `
-- ไม่มี batch ที่กำลังประมวลผล`;
-          }
-
-          queueMessage += `
+💡 ส่งไฟล์มาเพื่อทดสอบการอัพโหลดทันที!
 
 🌐 เว็บไซต์: ${webAppUrl}`;
 
-          // Only reply to first event, push to others
-          if (i === 0) {
-            await lineClient.replyMessage(event.replyToken, {
-              type: 'text',
-              text: queueMessage,
-            });
-          } else {
-            await lineClient.pushMessage(event.source.userId, {
-              type: 'text',
-              text: queueMessage,
-            });
-          }
-        } catch (error) {
-          console.error('[ERROR] Error getting queue status:', error);
-          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
-          const errorMessage = `เกิดข้อผิดพลาดในการดึงสถานะคิว กรุณาลองใหม่อีกครั้ง
-
-เว็บไซต์: ${webAppUrl}`;
-
-          // Only reply to first event, push to others
-          if (i === 0) {
-            await lineClient.replyMessage(event.replyToken, {
-              type: 'text',
-              text: errorMessage,
-            });
-          } else {
-            await lineClient.pushMessage(event.source.userId, {
-              type: 'text',
-              text: errorMessage,
-            });
-          }
+        // Only reply to first event, push to others
+        if (i === 0) {
+          await lineClient.replyMessage(event.replyToken, {
+            type: 'text',
+            text: queueMessage,
+          });
+        } else {
+          await lineClient.pushMessage(event.source.userId, {
+            type: 'text',
+            text: queueMessage,
+          });
         }
         continue;
       }
@@ -376,69 +335,106 @@ export default async function handler(req, res) {
 
     } // End of text events loop
 
-    // Handle file messages with batch processing
+    // Handle file messages with immediate upload
     if (fileEvents.length > 0) {
-      console.log(`[BATCH] Received ${fileEvents.length} file events`);
+      console.log(`[UPLOAD] Received ${fileEvents.length} file events - uploading immediately`);
 
       const userId = fileEvents[0].source.userId;
       const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
 
-      // Add files to batch processor
-      let totalFilesInBatch = 0;
-      for (let i = 0; i < fileEvents.length; i++) {
-        const event = fileEvents[i];
-        const messageId = event.message.id;
-
-        // Generate filename
-        let fileName;
-        switch (event.message.type) {
-          case 'file':
-            fileName = event.message.fileName || `file_${messageId}`;
-            break;
-          case 'image':
-            fileName = `image_${messageId}.jpg`;
-            break;
-          case 'video':
-            fileName = `video_${messageId}.mp4`;
-            break;
-          case 'audio':
-            fileName = `audio_${messageId}.m4a`;
-            break;
-          default:
-            fileName = `file_${messageId}`;
-        }
-
-        // Add to batch processor
-        totalFilesInBatch = batchProcessor.addFileToBatch(userId, {
-          fileName: fileName,
-          messageId: messageId,
-          messageType: event.message.type,
-          replyToken: i === 0 ? event.replyToken : null // Only first file gets reply token
-        });
-
-        console.log(`[BATCH] Added file ${i + 1}/${fileEvents.length}: ${fileName}`);
-      }
-
       // Send immediate response
-      const batchMessage = `📁 รับไฟล์ ${fileEvents.length} ไฟล์แล้ว
+      const uploadMessage = `📁 รับไฟล์ ${fileEvents.length} ไฟล์แล้ว
 
-📊 สถานะ:
-• ไฟล์ในชุดนี้: ${fileEvents.length} ไฟล์
-• รวมไฟล์ที่รอประมวลผล: ${totalFilesInBatch} ไฟล์
-
-⏳ ระบบจะรอไฟล์เพิ่มเติม 30 วินาที
-📤 หากไม่มีไฟล์เพิ่ม จะเริ่มอัพโหลดทีละไฟล์
-
-💡 คุณสามารถส่งไฟล์เพิ่มเติมได้ในระหว่างนี้
+🚀 กำลังอัพโหลดไปยัง Google Drive...
+⏳ กรุณารอสักครู่
 
 🌐 เว็บไซต์: ${webAppUrl}`;
 
       await lineClient.replyMessage(fileEvents[0].replyToken, {
         type: 'text',
-        text: batchMessage,
+        text: uploadMessage,
       });
 
-      console.log(`[BATCH] Batch processing initiated for user ${userId} with ${totalFilesInBatch} total files`);
+      // Process files immediately
+      let successCount = 0;
+      let failCount = 0;
+      const uploadResults = [];
+
+      for (let i = 0; i < fileEvents.length; i++) {
+        const event = fileEvents[i];
+        const messageId = event.message.id;
+
+        try {
+          console.log(`[UPLOAD] Processing file ${i + 1}/${fileEvents.length}: ${messageId}`);
+
+          // Generate filename
+          let fileName;
+          switch (event.message.type) {
+            case 'file':
+              fileName = event.message.fileName || `file_${messageId}`;
+              break;
+            case 'image':
+              fileName = `image_${messageId}.jpg`;
+              break;
+            case 'video':
+              fileName = `video_${messageId}.mp4`;
+              break;
+            case 'audio':
+              fileName = `audio_${messageId}.m4a`;
+              break;
+            default:
+              fileName = `file_${messageId}`;
+          }
+
+          // Download file from LINE
+          console.log(`[UPLOAD] Downloading file: ${fileName}`);
+          const fileBuffer = await lineClient.getMessageContent(messageId);
+          const buffer = await streamToBuffer(fileBuffer);
+
+          // Upload to Google Drive
+          console.log(`[UPLOAD] Uploading to Google Drive: ${fileName} (${buffer.length} bytes)`);
+          const drive = initGoogleDrive();
+          const uploadResult = await modernUpload(drive, buffer, fileName, process.env.GOOGLE_DRIVE_FOLDER_ID);
+
+          console.log(`[UPLOAD] Upload successful: ${fileName} -> ${uploadResult.id}`);
+          successCount++;
+          uploadResults.push({
+            fileName: fileName,
+            status: 'success',
+            fileId: uploadResult.id,
+            size: buffer.length
+          });
+
+        } catch (error) {
+          console.error(`[UPLOAD] Upload failed for file ${i + 1}:`, error);
+          failCount++;
+          uploadResults.push({
+            fileName: fileName || `file_${messageId}`,
+            status: 'failed',
+            error: error.message
+          });
+        }
+      }
+
+      // Send completion message
+      const completionMessage = `✅ การอัพโหลดเสร็จสิ้น!
+
+📊 ผลลัพธ์:
+• สำเร็จ: ${successCount} ไฟล์
+• ล้มเหลว: ${failCount} ไฟล์
+• รวม: ${fileEvents.length} ไฟล์
+
+${successCount > 0 ? '🎉 ไฟล์ถูกอัพโหลดไปยัง Google Drive แล้ว' : ''}
+${failCount > 0 ? '⚠️ บางไฟล์อัพโหลดไม่สำเร็จ กรุณาลองใหม่' : ''}
+
+🌐 เว็บไซต์: ${webAppUrl}`;
+
+      await lineClient.pushMessage(userId, {
+        type: 'text',
+        text: completionMessage,
+      });
+
+      console.log(`[UPLOAD] Completed processing ${fileEvents.length} files: ${successCount} success, ${failCount} failed`);
     } // End of file events handling
 
     return res.status(200).end();
