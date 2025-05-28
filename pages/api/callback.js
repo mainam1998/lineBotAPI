@@ -310,15 +310,27 @@ export default async function handler(req, res) {
 
     } // End of text events loop
 
-    // Handle file messages with batch processing
+    // Handle file messages with INSTANT upload (no batch processing)
     if (fileEvents.length > 0) {
-      console.log(`[BATCH] Received ${fileEvents.length} file events`);
+      console.log(`[INSTANT] Received ${fileEvents.length} file events - uploading immediately`);
 
       const userId = fileEvents[0].source.userId;
       const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
 
-      // Add files to batch processor
-      let totalFilesInBatch = 0;
+      // Send immediate response
+      const instantMessage = `📁 รับไฟล์ ${fileEvents.length} ไฟล์แล้ว
+
+⚡ กำลังอัพโหลดทันที...
+📤 ระบบจะอัพโหลดไฟล์ทีละไฟล์
+
+🌐 เว็บไซต์: ${webAppUrl}`;
+
+      await lineClient.replyMessage(fileEvents[0].replyToken, {
+        type: 'text',
+        text: instantMessage,
+      });
+
+      // Process each file immediately
       for (let i = 0; i < fileEvents.length; i++) {
         const event = fileEvents[i];
         const messageId = event.message.id;
@@ -342,37 +354,73 @@ export default async function handler(req, res) {
             fileName = `file_${messageId}`;
         }
 
-        // Add to batch processor
-        totalFilesInBatch = batchProcessor.addFileToBatch(userId, {
-          fileName: fileName,
-          messageId: messageId,
-          messageType: event.message.type,
-          replyToken: i === 0 ? event.replyToken : null // Only first file gets reply token
-        });
+        console.log(`[INSTANT] Processing file ${i + 1}/${fileEvents.length}: ${fileName}`);
 
-        console.log(`[BATCH] Added file ${i + 1}/${fileEvents.length}: ${fileName}`);
-      }
+        try {
+          // Initialize Google Drive client
+          const drive = initGoogleDrive();
 
-      // Send immediate response
-      const batchMessage = `📁 รับไฟล์ ${fileEvents.length} ไฟล์แล้ว
+          // Get file content from LINE
+          console.log(`[INSTANT] Downloading file from LINE: ${fileName}`);
+          const stream = await lineClient.getMessageContent(messageId);
 
-📊 สถานะ:
-• ไฟล์ในชุดนี้: ${fileEvents.length} ไฟล์
-• รวมไฟล์ที่รอประมวลผล: ${totalFilesInBatch} ไฟล์
+          // Convert stream to buffer
+          console.log(`[INSTANT] Converting stream to buffer: ${fileName}`);
+          const buffer = await streamToBuffer(stream);
 
-⏳ ระบบจะรอไฟล์เพิ่มเติม 30 วินาที
-📤 หากไม่มีไฟล์เพิ่ม จะเริ่มอัพโหลดทีละไฟล์
+          console.log(`[INSTANT] File size: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB`);
 
-💡 คุณสามารถส่งไฟล์เพิ่มเติมได้ในระหว่างนี้
+          // Upload file to Google Drive
+          console.log(`[INSTANT] Uploading to Google Drive: ${fileName}`);
+          const uploadResult = await modernUpload(
+            drive,
+            fileName,
+            buffer,
+            process.env.GOOGLE_DRIVE_FOLDER_ID || 'root'
+          );
+
+          // Send success message
+          const successMessage = `✅ อัพโหลดสำเร็จ (${i + 1}/${fileEvents.length})
+
+📁 ไฟล์: ${fileName}
+🔗 ลิงก์: ${uploadResult.webViewLink || 'ไม่สามารถสร้างลิงก์ได้'}
+📊 ขนาด: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB
 
 🌐 เว็บไซต์: ${webAppUrl}`;
 
-      await lineClient.replyMessage(fileEvents[0].replyToken, {
-        type: 'text',
-        text: batchMessage,
-      });
+          await lineClient.pushMessage(userId, {
+            type: 'text',
+            text: successMessage,
+          });
 
-      console.log(`[BATCH] Batch processing initiated for user ${userId} with ${totalFilesInBatch} total files`);
+          console.log(`[INSTANT] File ${i + 1}/${fileEvents.length} uploaded successfully: ${fileName}`);
+
+        } catch (error) {
+          console.error(`[INSTANT] Error uploading file ${i + 1}/${fileEvents.length}: ${fileName}`, error);
+
+          // Send error message
+          const errorMessage = `❌ อัพโหลดล้มเหลว (${i + 1}/${fileEvents.length})
+
+📁 ไฟล์: ${fileName}
+⚠️ ข้อผิดพลาด: ${error.message}
+
+💡 กรุณาลองส่งไฟล์ใหม่อีกครั้ง
+
+🌐 เว็บไซต์: ${webAppUrl}`;
+
+          await lineClient.pushMessage(userId, {
+            type: 'text',
+            text: errorMessage,
+          });
+        }
+
+        // Add small delay between files to avoid overwhelming the system
+        if (i < fileEvents.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+        }
+      }
+
+      console.log(`[INSTANT] All ${fileEvents.length} files processed for user ${userId}`);
     } // End of file events handling
 
     return res.status(200).end();
