@@ -191,16 +191,102 @@ export default async function handler(req, res) {
             continue;
           }
 
-          const fileList = files
-            .slice(0, 10) // Limit to 10 files
-            .map((file, index) => {
-              const size = file.size ? `(${(parseInt(file.size) / (1024 * 1024)).toFixed(2)} MB)` : '';
-              return `${index + 1}. ${file.name} ${size}`;
-            })
-            .join('\n');
+          // Sort files by creation time (newest first)
+          const sortedFiles = files.sort((a, b) => {
+            const dateA = new Date(a.createdTime || 0);
+            const dateB = new Date(b.createdTime || 0);
+            return dateB - dateA;
+          });
 
-          const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
-          const listMessage = `ไฟล์ล่าสุด (${Math.min(files.length, 10)} จาก ${files.length}):\n${fileList}\n\nเว็บไซต์: ${webAppUrl}`;
+          // Group files by type for better organization
+          const imageFiles = sortedFiles.filter(file => file.mimeType?.startsWith('image/'));
+          const videoFiles = sortedFiles.filter(file => file.mimeType?.startsWith('video/'));
+          const audioFiles = sortedFiles.filter(file => file.mimeType?.startsWith('audio/'));
+          const documentFiles = sortedFiles.filter(file =>
+            file.mimeType?.includes('document') ||
+            file.mimeType?.includes('pdf') ||
+            file.mimeType?.includes('text') ||
+            file.mimeType?.includes('spreadsheet') ||
+            file.mimeType?.includes('presentation')
+          );
+          const otherFiles = sortedFiles.filter(file =>
+            !file.mimeType?.startsWith('image/') &&
+            !file.mimeType?.startsWith('video/') &&
+            !file.mimeType?.startsWith('audio/') &&
+            !file.mimeType?.includes('document') &&
+            !file.mimeType?.includes('pdf') &&
+            !file.mimeType?.includes('text') &&
+            !file.mimeType?.includes('spreadsheet') &&
+            !file.mimeType?.includes('presentation')
+          );
+
+          let fileList = '';
+
+          // Add images
+          if (imageFiles.length > 0) {
+            fileList += `📸 รูปภาพ (${imageFiles.length}):\n`;
+            fileList += imageFiles.slice(0, 20).map((file, index) => {
+              const size = file.size ? ` (${(parseInt(file.size) / (1024 * 1024)).toFixed(2)} MB)` : '';
+              const date = file.createdTime ? new Date(file.createdTime).toLocaleDateString('th-TH') : '';
+              return `${index + 1}. ${file.name}${size} ${date}`;
+            }).join('\n');
+            if (imageFiles.length > 20) fileList += `\n... และอีก ${imageFiles.length - 20} ไฟล์`;
+            fileList += '\n\n';
+          }
+
+          // Add videos
+          if (videoFiles.length > 0) {
+            fileList += `🎥 วิดีโอ (${videoFiles.length}):\n`;
+            fileList += videoFiles.slice(0, 10).map((file, index) => {
+              const size = file.size ? ` (${(parseInt(file.size) / (1024 * 1024)).toFixed(2)} MB)` : '';
+              const date = file.createdTime ? new Date(file.createdTime).toLocaleDateString('th-TH') : '';
+              return `${index + 1}. ${file.name}${size} ${date}`;
+            }).join('\n');
+            if (videoFiles.length > 10) fileList += `\n... และอีก ${videoFiles.length - 10} ไฟล์`;
+            fileList += '\n\n';
+          }
+
+          // Add audio
+          if (audioFiles.length > 0) {
+            fileList += `🎵 เสียง (${audioFiles.length}):\n`;
+            fileList += audioFiles.slice(0, 10).map((file, index) => {
+              const size = file.size ? ` (${(parseInt(file.size) / (1024 * 1024)).toFixed(2)} MB)` : '';
+              const date = file.createdTime ? new Date(file.createdTime).toLocaleDateString('th-TH') : '';
+              return `${index + 1}. ${file.name}${size} ${date}`;
+            }).join('\n');
+            if (audioFiles.length > 10) fileList += `\n... และอีก ${audioFiles.length - 10} ไฟล์`;
+            fileList += '\n\n';
+          }
+
+          // Add documents
+          if (documentFiles.length > 0) {
+            fileList += `📄 เอกสาร (${documentFiles.length}):\n`;
+            fileList += documentFiles.slice(0, 15).map((file, index) => {
+              const size = file.size ? ` (${(parseInt(file.size) / (1024 * 1024)).toFixed(2)} MB)` : '';
+              const date = file.createdTime ? new Date(file.createdTime).toLocaleDateString('th-TH') : '';
+              return `${index + 1}. ${file.name}${size} ${date}`;
+            }).join('\n');
+            if (documentFiles.length > 15) fileList += `\n... และอีก ${documentFiles.length - 15} ไฟล์`;
+            fileList += '\n\n';
+          }
+
+          // Add other files
+          if (otherFiles.length > 0) {
+            fileList += `📁 อื่นๆ (${otherFiles.length}):\n`;
+            fileList += otherFiles.slice(0, 10).map((file, index) => {
+              const size = file.size ? ` (${(parseInt(file.size) / (1024 * 1024)).toFixed(2)} MB)` : '';
+              const date = file.createdTime ? new Date(file.createdTime).toLocaleDateString('th-TH') : '';
+              return `${index + 1}. ${file.name}${size} ${date}`;
+            }).join('\n');
+            if (otherFiles.length > 10) fileList += `\n... และอีก ${otherFiles.length - 10} ไฟล์`;
+            fileList += '\n\n';
+          }
+
+          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const totalSize = files.reduce((sum, file) => sum + (parseInt(file.size) || 0), 0);
+          const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+
+          const listMessage = `📂 ไฟล์ทั้งหมดในไดร์ฟ (${files.length} ไฟล์, ${totalSizeMB} MB):\n\n${fileList}🌐 เว็บไซต์: ${webAppUrl}`;
 
           // Only reply to first event, push to others
           if (i === 0) {
