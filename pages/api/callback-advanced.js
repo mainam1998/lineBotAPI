@@ -79,7 +79,7 @@ export default async function handler(req, res) {
     try {
       const event = req.body.events?.[0];
       if (event && event.source && event.source.userId) {
-        const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+        const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
         const errorMessage = `เกิดข้อผิดพลาดในการอัพโหลดไฟล์ กรุณาลองใหม่อีกครั้ง
 
 เว็บไซต์: ${webAppUrl}`;
