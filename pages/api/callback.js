@@ -90,7 +90,7 @@ export default async function handler(req, res) {
       // Handle commands
       if (text === 'help' || text === 'ช่วยเหลือ') {
         console.log('[DEBUG] Processing help command');
-        const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+        const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
         const helpMessage = `คำสั่งที่ใช้ได้:
 - help หรือ ช่วยเหลือ: แสดงคำสั่งที่ใช้ได้
 - status หรือ สถานะ: แสดงสถานะของบอท
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
         try {
           const botInfo = await lineClient.getBotInfo();
 
-          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
           const statusMessage = `สถานะของบอท:
 - ชื่อ: ${botInfo.displayName}
 - รูปภาพ: ${botInfo.pictureUrl || 'ไม่มี'}
@@ -143,7 +143,7 @@ export default async function handler(req, res) {
           }
         } catch (error) {
           console.error('[ERROR] Error getting bot info:', error);
-          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
           const botErrorMessage = `เกิดข้อผิดพลาดในการดึงข้อมูลสถานะ กรุณาลองใหม่อีกครั้ง
 
 เว็บไซต์: ${webAppUrl}`;
@@ -171,7 +171,7 @@ export default async function handler(req, res) {
           const files = await listFiles(drive, process.env.GOOGLE_DRIVE_FOLDER_ID || 'root');
 
           if (files.length === 0) {
-            const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+            const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
             const noFilesMessage = `ไม่พบไฟล์ในโฟลเดอร์
 
 เว็บไซต์: ${webAppUrl}`;
@@ -199,7 +199,7 @@ export default async function handler(req, res) {
             })
             .join('\n');
 
-          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
           const listMessage = `ไฟล์ล่าสุด (${Math.min(files.length, 10)} จาก ${files.length}):\n${fileList}\n\nเว็บไซต์: ${webAppUrl}`;
 
           // Only reply to first event, push to others
@@ -216,7 +216,7 @@ export default async function handler(req, res) {
           }
         } catch (error) {
           console.error('[ERROR] Error listing files:', error);
-          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
           const errorMessage = `เกิดข้อผิดพลาดในการดึงรายการไฟล์ กรุณาลองใหม่อีกครั้ง
 
 เว็บไซต์: ${webAppUrl}`;
@@ -245,7 +245,7 @@ export default async function handler(req, res) {
           const globalStats = uploadQueue.getQueueStats();
           const batchStatus = batchProcessor.getBatchStatus(userId);
 
-          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
 
           let queueMessage = `📊 สถานะระบบ:
 
@@ -286,7 +286,7 @@ export default async function handler(req, res) {
           }
         } catch (error) {
           console.error('[ERROR] Error getting queue status:', error);
-          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
           const errorMessage = `เกิดข้อผิดพลาดในการดึงสถานะคิว กรุณาลองใหม่อีกครั้ง
 
 เว็บไซต์: ${webAppUrl}`;
@@ -315,7 +315,7 @@ export default async function handler(req, res) {
       console.log(`[INSTANT] Received ${fileEvents.length} file events - uploading immediately`);
 
       const userId = fileEvents[0].source.userId;
-      const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+      const webAppUrl = 'https://line-bot-api-ruby.vercel.app/';
 
       // Send immediate response
       const instantMessage = `📁 รับไฟล์ ${fileEvents.length} ไฟล์แล้ว
