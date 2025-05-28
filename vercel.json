@@ -1,3 +1,13 @@
 {
-  "version": 2
+  "version": 2,
+  "functions": {
+    "pages/api/**/*.js": {
+      "maxDuration": 60
+    }
+  },
+  "build": {
+    "env": {
+      "NODE_OPTIONS": "--max-old-space-size=1024"
+    }
+  }
 }
