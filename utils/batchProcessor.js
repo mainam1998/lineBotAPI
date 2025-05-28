@@ -1,13 +1,19 @@
 /**
  * Batch File Processor
  * รอรับไฟล์หลายไฟล์แล้วประมวลผลทีละไฟล์จนครบ
+ * Enhanced with performance monitoring and improved error handling
  */
+
+const performanceMonitor = require('./performanceMonitor');
+const fileValidator = require('./fileValidator');
+const errorHandler = require('./errorHandler');
 
 class BatchProcessor {
   constructor() {
     this.batches = new Map(); // userId -> batch data
     this.timers = new Map(); // userId -> timer
     this.BATCH_TIMEOUT = 30000; // 30 seconds
+    this.uploadSessions = new Map(); // track individual upload sessions
   }
 
   /**
@@ -102,19 +108,51 @@ class BatchProcessor {
         file.status = 'uploading';
         const buffer = await this.streamToBuffer(stream);
 
-        // อัพโหลดไป Google Drive
+        // Validate file before upload
+        const validation = fileValidator.validateFile(file.fileName, buffer.length, buffer);
+        if (!validation.isValid) {
+          throw new Error(`File validation failed: ${validation.errors.join(', ')}`);
+        }
+
+        // Log validation warnings
+        if (validation.warnings.length > 0) {
+          console.warn(`[BATCH] File validation warnings for ${file.fileName}: ${validation.warnings.join(', ')}`);
+        }
+
+        // อัพโหลดไป Google Drive with performance monitoring
         let result;
+        let uploadSession;
+
         try {
+          // Start performance monitoring
+          uploadSession = performanceMonitor.recordUploadStart(
+            file.fileName,
+            buffer.length,
+            'batch-upload'
+          );
+          this.uploadSessions.set(file.fileName, uploadSession);
+
           result = await this.uploadToGoogleDrive(file.fileName, buffer);
+
+          // Record successful upload
+          performanceMonitor.recordUploadComplete(uploadSession, true);
+          this.uploadSessions.delete(file.fileName);
+
         } catch (uploadError) {
-          // Handle specific upload errors
-          let errorMessage = uploadError.message;
-          if (errorMessage.includes('t is not a function')) {
-            errorMessage = 'ปัญหาการเรียกใช้ฟังก์ชัน (Module Error)';
-          } else if (errorMessage.includes('Module import failed')) {
-            errorMessage = 'ปัญหาการโหลดโมดูล (Import Error)';
+          // Record failed upload
+          if (uploadSession) {
+            performanceMonitor.recordUploadComplete(uploadSession, false, uploadError.message);
+            this.uploadSessions.delete(file.fileName);
           }
-          throw new Error(errorMessage);
+
+          // Handle error with enhanced error handler
+          const errorInfo = errorHandler.getUserMessage(uploadError, 'batch_upload', {
+            fileName: file.fileName,
+            fileSize: buffer.length,
+            userId: userId
+          });
+
+          throw new Error(errorInfo.message);
         }
 
         // อัพเดทสถานะ

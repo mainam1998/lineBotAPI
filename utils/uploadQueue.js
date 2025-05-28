@@ -1,9 +1,16 @@
 // Upload Queue System for handling multiple file uploads
+// Enhanced with performance monitoring and improved error handling
+
+const performanceMonitor = require('./performanceMonitor');
+const fileValidator = require('./fileValidator');
+const errorHandler = require('./errorHandler');
+
 class UploadQueue {
   constructor() {
     this.queue = [];
     this.processing = false;
     this.userQueues = new Map(); // Track files per user
+    this.uploadSessions = new Map(); // Track individual upload sessions
   }
 
   // Add file to queue
@@ -99,9 +106,21 @@ class UploadQueue {
       item.attempts++;
 
       try {
+        // Start performance monitoring
+        const uploadSession = performanceMonitor.recordUploadStart(
+          item.fileName,
+          item.buffer.length,
+          'queue-upload'
+        );
+        this.uploadSessions.set(item.id, uploadSession);
+
         // Process the upload
         console.log(`[QUEUE] Starting upload for: ${item.fileName}`);
         const result = await this.uploadFile(item);
+
+        // Record successful upload
+        performanceMonitor.recordUploadComplete(uploadSession, true);
+        this.uploadSessions.delete(item.id);
 
         item.status = 'completed';
         item.result = result;
@@ -126,7 +145,22 @@ class UploadQueue {
       } catch (error) {
         console.error(`[QUEUE] Failed to upload ${item.fileName}:`, error);
 
-        item.error = error.message;
+        // Record failed upload
+        const uploadSession = this.uploadSessions.get(item.id);
+        if (uploadSession) {
+          performanceMonitor.recordUploadComplete(uploadSession, false, error.message);
+          this.uploadSessions.delete(item.id);
+        }
+
+        // Handle error with enhanced error handler
+        const errorInfo = errorHandler.getUserMessage(error, 'queue_upload', {
+          fileName: item.fileName,
+          fileSize: item.buffer ? item.buffer.length : 0,
+          userId: item.userId,
+          attempt: item.attempts
+        });
+
+        item.error = errorInfo.message;
 
         if (item.attempts >= item.maxAttempts) {
           item.status = 'failed';
@@ -167,10 +201,21 @@ class UploadQueue {
     this.cleanupQueue();
   }
 
-  // Modern upload file function with fallback support
+  // Modern upload file function with fallback support and validation
   async uploadFile(item) {
     try {
       console.log(`[QUEUE] Starting upload for ${item.fileName} (size: ${(item.buffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+
+      // Validate file before upload
+      const validation = fileValidator.validateFile(item.fileName, item.buffer.length, item.buffer);
+      if (!validation.isValid) {
+        throw new Error(`File validation failed: ${validation.errors.join(', ')}`);
+      }
+
+      // Log validation warnings
+      if (validation.warnings.length > 0) {
+        console.warn(`[QUEUE] File validation warnings for ${item.fileName}: ${validation.warnings.join(', ')}`);
+      }
 
       // Try modern upload first
       try {

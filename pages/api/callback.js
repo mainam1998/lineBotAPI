@@ -96,7 +96,14 @@ export default async function handler(req, res) {
 - status หรือ สถานะ: แสดงสถานะของบอท
 - list หรือ รายการ: แสดงรายการไฟล์ล่าสุด
 - queue หรือ คิว หรือ สถานะคิว: แสดงสถานะคิวอัพโหลด
+- performance หรือ ประสิทธิภาพ หรือ stats: แสดงสถิติประสิทธิภาพ
 - ส่งไฟล์มาเพื่ออัปโหลดไปยัง Google Drive (รองรับหลายไฟล์พร้อมกัน)
+
+🔧 ปรับปรุงใหม่:
+- รองรับไฟล์ขนาดใหญ่ถึง 300MB
+- ระบบ chunked upload สำหรับไฟล์ขนาดใหญ่
+- การตรวจสอบไฟล์ก่อนอัพโหลด
+- ติดตามประสิทธิภาพแบบ real-time
 
 เว็บไซต์: ${webAppUrl}`;
 
@@ -288,6 +295,65 @@ export default async function handler(req, res) {
           console.error('[ERROR] Error getting queue status:', error);
           const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
           const errorMessage = `เกิดข้อผิดพลาดในการดึงสถานะคิว กรุณาลองใหม่อีกครั้ง
+
+เว็บไซต์: ${webAppUrl}`;
+
+          // Only reply to first event, push to others
+          if (i === 0) {
+            await lineClient.replyMessage(event.replyToken, {
+              type: 'text',
+              text: errorMessage,
+            });
+          } else {
+            await lineClient.pushMessage(event.source.userId, {
+              type: 'text',
+              text: errorMessage,
+            });
+          }
+        }
+        continue;
+      }
+
+      if (text === 'performance' || text === 'ประสิทธิภาพ' || text === 'stats') {
+        console.log('[DEBUG] Processing performance command');
+        try {
+          const performanceMonitor = require('../../utils/performanceMonitor');
+          const summary = performanceMonitor.getPerformanceSummary();
+
+          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+
+          const performanceMessage = `📈 สถิติประสิทธิภาพ:
+
+📊 การอัพโหลด:
+- ทั้งหมด: ${summary.summary.totalUploads} ไฟล์
+- สำเร็จ: ${summary.summary.successfulUploads} ไฟล์
+- อัตราสำเร็จ: ${summary.summary.successRate}
+- ข้อมูลรวม: ${summary.summary.totalDataTransferred}
+
+⚡ ประสิทธิภาพ:
+- ความเร็วเฉลี่ย: ${summary.summary.averageSpeed}
+- เวลาเฉลี่ย: ${summary.summary.averageTime}
+
+💾 หน่วยความจำ: ${summary.systemHealth.currentMemory ? summary.systemHealth.currentMemory.heapUsed : 'N/A'}MB
+
+🌐 เว็บไซต์: ${webAppUrl}`;
+
+          // Only reply to first event, push to others
+          if (i === 0) {
+            await lineClient.replyMessage(event.replyToken, {
+              type: 'text',
+              text: performanceMessage,
+            });
+          } else {
+            await lineClient.pushMessage(event.source.userId, {
+              type: 'text',
+              text: performanceMessage,
+            });
+          }
+        } catch (error) {
+          console.error('[ERROR] Error getting performance stats:', error);
+          const webAppUrl = 'https://line-bot-rho-ashy.vercel.app/';
+          const errorMessage = `เกิดข้อผิดพลาดในการดึงสถิติประสิทธิภาพ กรุณาลองใหม่อีกครั้ง
 
 เว็บไซต์: ${webAppUrl}`;
 
